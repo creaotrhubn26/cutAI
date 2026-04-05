@@ -36,7 +36,7 @@ while IFS= read -r line; do
   [[ "$line" =~ ^[[:space:]]*\[.*\][[:space:]]*$ ]] && continue
 
   # Match KEY = "VALUE" or KEY="VALUE"
-  if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*"(.*)"[[:space:]]*$ ]]; then
+  if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*\"(.*)\"[[:space:]]*$ ]]; then
     key="${BASH_REMATCH[1]}"
     value="${BASH_REMATCH[2]}"
 
