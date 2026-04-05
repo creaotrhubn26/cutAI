@@ -28,12 +28,22 @@ fi
 
 uploaded=0
 skipped=0
+in_userenv_shared=0
 
 while IFS= read -r line; do
-  # Skip comments, section headers, and blank lines
+  # Enter/exit the .replit user secret section.
+  if [[ "$line" =~ ^[[:space:]]*\[userenv\.shared\][[:space:]]*$ ]]; then
+    in_userenv_shared=1
+    continue
+  fi
+  if [[ "$line" =~ ^[[:space:]]*\[[^\]]+\][[:space:]]*$ ]]; then
+    in_userenv_shared=0
+  fi
+  [[ "$in_userenv_shared" -eq 1 ]] || continue
+
+  # Skip comments and blank lines
   [[ -z "${line// }" ]] && continue
   [[ "$line" =~ ^[[:space:]]*# ]] && continue
-  [[ "$line" =~ ^[[:space:]]*\[.*\][[:space:]]*$ ]] && continue
 
   # Match KEY = "VALUE" or KEY="VALUE"
   if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*\"(.*)\"[[:space:]]*$ ]]; then
