@@ -1,0 +1,21 @@
+SELF-LEARNING & FEEDBACK LOOP
+1. Edit approval weighting — when user approves AI edit, record signal; rejected = negative signal
+2. Cut preference model — learn whether user prefers J-cuts, L-cuts, or hard cuts from edit history
+3. Pacing preference curve — fit a Gaussian to user's accepted cut durations to build personal rhythm model
+4. B-roll preference learning — track which B-roll suggestions user accepts vs rejects, update similarity weights
+5. Color grade fingerprint — extract per-user color temperature preference and apply by default
+6. Caption style memory — remember font, size, position, animation style per user / per project type
+7. Platform preference inference — infer which platform user targets from export history and optimize for it
+8. Edit duration preference — learn target output duration per content type from export history
+9. Mistake pattern detection — detect when user repeatedly undoes a specific AI decision and stop making it
+10. Feedback collection micro-modal — "Did this cut feel right?" thumbs up/down after first render
+11. Style drift alerting — alert when current edit style drifts significantly from user's established baseline
+12. Cross-project pattern mining — find edit patterns consistent across all user's top-performing projects
+13. Training pair auto-generation — every manual edit creates a (before, after) training pair automatically
+14. Cold-start onboarding survey — new users answer 5 questions about editing style to seed initial model
+15. Federated learning privacy — aggregate learning signals without sending raw footage to central server
+16. Model versioning with rollback — track model versions, allow user to rollback if new model performs worse
+17. Active learning queue — surface ambiguous decisions to user for labeling to improve model fastest
+18. Performance attribution — when video performs well on social, trace back which edits contributed
+19. Editing session analytics — track time spent per operation to identify which features to improve
+20. Benchmark comparison — compare user's AI model vs baseline to show personalization improvement %

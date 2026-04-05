@@ -1,0 +1,183 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --font-mono: var(--app-font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --app-font-sans: 'Inter', sans-serif;
+  --app-font-serif: Georgia, serif;
+  --app-font-mono: Menlo, monospace;
+  --radius: 0.375rem;
+
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --card-border: 240 5.9% 90%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --popover-border: 240 5.9% 90%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
+  
+  --sidebar: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-border: 240 5.9% 90%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-ring: 240 5.9% 10%;
+}
+
+/* ─── FCP-inspired dark theme ──────────────────────────────────────────────── */
+/* Palette reference:                                                           */
+/*   Main bg     #1e1e1e  hsl(0 0% 12%)                                        */
+/*   Panel bg    #272727  hsl(0 0% 15%)                                        */
+/*   Raised bg   #2e2e2e  hsl(0 0% 18%)                                        */
+/*   Border      #3d3d3d  hsl(0 0% 24%)                                        */
+/*   Text        #e8e8e8  hsl(0 0% 91%)                                        */
+/*   Muted text  #888888  hsl(0 0% 53%)                                        */
+/*   FCP blue    #4a9eff  hsl(213 100% 65%)                                    */
+/* ─────────────────────────────────────────────────────────────────────────── */
+.dark {
+  --background: 0 0% 12%;
+  --foreground: 0 0% 91%;
+  --card: 0 0% 15%;
+  --card-foreground: 0 0% 91%;
+  --card-border: 0 0% 24%;
+  --popover: 0 0% 15%;
+  --popover-foreground: 0 0% 91%;
+  --popover-border: 0 0% 24%;
+  --primary: 213 100% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 18%;
+  --secondary-foreground: 0 0% 91%;
+  --muted: 0 0% 18%;
+  --muted-foreground: 0 0% 53%;
+  --accent: 0 0% 20%;
+  --accent-foreground: 0 0% 91%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 24%;
+  --input: 0 0% 22%;
+  --ring: 213 100% 65%;
+  
+  --sidebar: 0 0% 12%;
+  --sidebar-foreground: 0 0% 75%;
+  --sidebar-border: 0 0% 24%;
+  --sidebar-primary: 213 100% 65%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 18%;
+  --sidebar-accent-foreground: 0 0% 91%;
+  --sidebar-ring: 213 100% 65%;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* ── FCP filmstrip holes pattern for media browser ─────────────────────────── */
+.filmstrip-holes {
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0px,
+    transparent 6px,
+    #000 6px,
+    #000 14px,
+    transparent 14px,
+    transparent 24px
+  );
+}
+
+/* ── Edit tool cursor overrides ─────────────────────────────────────────────── */
+.tool-select   { cursor: default !important; }
+.tool-trim     { cursor: ew-resize !important; }
+.tool-blade    { cursor: crosshair !important; }
+.tool-position { cursor: move !important; }
+.tool-hand     { cursor: grab !important; }
+.tool-hand:active { cursor: grabbing !important; }
+
+/* ── Clip thumbnail shimmer ─────────────────────────────────────────────────── */
+@keyframes thumb-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.thumb-shimmer {
+  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+  background-size: 200% 100%;
+  animation: thumb-shimmer 1.5s infinite;
+}
+
+/* ── FCP-style scrollbar ────────────────────────────────────────────────────── */
+.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+.dark ::-webkit-scrollbar-track { background: #1e1e1e; }
+.dark ::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #555; }

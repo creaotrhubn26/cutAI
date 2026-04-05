@@ -1,0 +1,1205 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: CutAI - AI Video Editor API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: projects
+    description: Video editing projects
+  - name: videos
+    description: Video management and uploads
+  - name: jobs
+    description: AI analysis and editing jobs
+  - name: segments
+    description: Timeline segments and clips
+  - name: exports
+    description: Exported video files
+  - name: stats
+    description: Dashboard statistics
+  - name: music
+    description: Music and beat analysis
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectBody"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{id}/videos:
+    get:
+      operationId: listProjectVideos
+      tags: [videos]
+      summary: List videos in a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of videos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Video"
+
+  /videos:
+    post:
+      operationId: uploadVideo
+      tags: [videos]
+      summary: Upload a video file (multipart)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadVideoBody"
+      responses:
+        "201":
+          description: Uploaded video
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Video"
+
+  /videos/{id}/thumbnail.jpg:
+    get:
+      operationId: getVideoThumbnail
+      tags: [videos]
+      summary: Get a thumbnail frame from a video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: t
+          in: query
+          required: false
+          schema:
+            type: number
+            description: Time in seconds to extract thumbnail (default 1.0)
+      responses:
+        "200":
+          description: JPEG thumbnail image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Video not found
+
+  /videos/{id}/stream:
+    get:
+      operationId: streamVideo
+      tags: [videos]
+      summary: Stream a video file with range support
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Video file stream
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Partial content (range request)
+
+  /videos/{id}:
+    get:
+      operationId: getVideo
+      tags: [videos]
+      summary: Get video by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Video details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Video"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteVideo
+      tags: [videos]
+      summary: Delete video
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /jobs:
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Start an AI analysis or editing job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobBody"
+      responses:
+        "201":
+          description: Created job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job status and result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+
+  /projects/{id}/jobs:
+    get:
+      operationId: listProjectJobs
+      tags: [jobs]
+      summary: List all jobs for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+
+  /segments:
+    post:
+      operationId: createSegment
+      tags: [segments]
+      summary: Create a timeline segment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSegmentBody"
+      responses:
+        "201":
+          description: Created segment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Segment"
+
+  /segments/{id}:
+    get:
+      operationId: getSegment
+      tags: [segments]
+      summary: Get segment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Segment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Segment"
+    patch:
+      operationId: updateSegment
+      tags: [segments]
+      summary: Update segment (trim, reorder, label)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSegmentBody"
+      responses:
+        "200":
+          description: Updated segment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Segment"
+    delete:
+      operationId: deleteSegment
+      tags: [segments]
+      summary: Delete a segment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/{id}/segments:
+    get:
+      operationId: listProjectSegments
+      tags: [segments]
+      summary: List all timeline segments for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of segments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Segment"
+
+  /exports:
+    post:
+      operationId: createExport
+      tags: [exports]
+      summary: Start an export job for a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExportBody"
+      responses:
+        "201":
+          description: Created export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Export"
+
+  /exports/{id}:
+    get:
+      operationId: getExport
+      tags: [exports]
+      summary: Get export status and download URL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Export details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Export"
+        "404":
+          description: Not found
+
+  /projects/{id}/exports:
+    get:
+      operationId: listProjectExports
+      tags: [exports]
+      summary: List all exports for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of exports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Export"
+
+  /stats/overview:
+    get:
+      operationId: getStatsOverview
+      tags: [stats]
+      summary: Get dashboard overview stats
+      responses:
+        "200":
+          description: Overview statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsOverview"
+
+  /stats/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [stats]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /projects/{id}/music-analysis:
+    get:
+      operationId: getProjectMusicAnalysis
+      tags: [music]
+      summary: Get music/beat analysis for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Music analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MusicAnalysis"
+        "404":
+          description: Not found
+
+  /projects/{id}/audio-enhancement:
+    get:
+      operationId: getProjectAudioEnhancement
+      tags: [music]
+      summary: Get the AI audio enhancement plan for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audio enhancement plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioEnhancementPlan"
+        "404":
+          description: No enhancement plan found
+
+  /projects/{id}/beat-map:
+    get:
+      operationId: getProjectBeatMap
+      tags: [music]
+      summary: Get the beat map (all beat timestamps) for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Beat map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeatMap"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        targetFormat:
+          type: string
+          enum: [instagram_reel, tiktok, youtube_short, youtube_long, wedding_highlight, ad_spot, custom]
+        status:
+          type: string
+          enum: [draft, analyzing, editing, review, exported]
+        videoCount:
+          type: integer
+        segmentCount:
+          type: integer
+        durationSeconds:
+          type: ["number", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        manuscript:
+          type: ["string", "null"]
+        manuscriptAnalysis:
+          type: ["string", "null"]
+        qualityRating:
+          type: ["integer", "null"]
+          description: "Overall quality score from quality check (0–100)"
+        musicSuggestions:
+          type: ["string", "null"]
+          description: "JSON array of AI music suggestions"
+        musicMood:
+          type: ["string", "null"]
+          description: "Detected overall mood for music selection"
+        pacingSuggestions:
+          type: ["string", "null"]
+          description: "JSON object with AI pacing analysis and segment suggestions"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - targetFormat
+        - status
+        - videoCount
+        - segmentCount
+        - createdAt
+        - updatedAt
+
+    ProjectDetail:
+      allOf:
+        - $ref: "#/components/schemas/Project"
+        - type: object
+          properties:
+            videos:
+              type: array
+              items:
+                $ref: "#/components/schemas/Video"
+            segments:
+              type: array
+              items:
+                $ref: "#/components/schemas/Segment"
+            jobs:
+              type: array
+              items:
+                $ref: "#/components/schemas/Job"
+          required:
+            - videos
+            - segments
+            - jobs
+
+    CreateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        targetFormat:
+          type: string
+          enum: [instagram_reel, tiktok, youtube_short, youtube_long, wedding_highlight, ad_spot, custom]
+      required:
+        - name
+        - targetFormat
+
+    UpdateProjectBody:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        targetFormat:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+
+    Video:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        filename:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: integer
+        durationSeconds:
+          type: ["number", "null"]
+        width:
+          type: ["integer", "null"]
+        height:
+          type: ["integer", "null"]
+        fps:
+          type: ["number", "null"]
+        filePath:
+          type: string
+        status:
+          type: string
+          enum: [uploading, ready, processing, error, transcoding]
+        transcript:
+          type: ["string", "null"]
+        sceneAnalysis:
+          type: ["string", "null"]
+        beatData:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - filename
+        - originalName
+        - mimeType
+        - sizeBytes
+        - filePath
+        - status
+        - createdAt
+
+    UploadVideoBody:
+      type: object
+      properties:
+        projectId:
+          type: string
+        file:
+          type: string
+          format: binary
+      required:
+        - projectId
+        - file
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        videoId:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [transcribe, analyze_scenes, detect_beats, analyze_music, enhance_audio, generate_edit_plan, apply_edit, render, analyze_manuscript, learn_xml_style, quality_check, detect_speech, analyze_clips, detect_quality_signals, rank_clips_ai, refine_edit, learn_from_edit, auto_assemble, trim_silence, generate_captions, suggest_broll, smart_reframe, suggest_graphics, suggest_music, semantic_tag, detect_scenes_visual, detect_speakers, generate_manuscript, extract_features, generate_proxy, embed_clips, score_cut_points, match_broll, suggest_pacing]
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        progress:
+          type: integer
+        result:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        aiModel:
+          type: ["string", "null"]
+        startedAt:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        logLines:
+          type: ["string", "null"]
+      required:
+        - id
+        - projectId
+        - type
+        - status
+        - progress
+        - createdAt
+
+    CreateJobBody:
+      type: object
+      properties:
+        projectId:
+          type: string
+        videoId:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [transcribe, analyze_scenes, detect_beats, analyze_music, enhance_audio, generate_edit_plan, apply_edit, render, analyze_manuscript, learn_xml_style, quality_check, detect_speech, analyze_clips, detect_quality_signals, rank_clips_ai, refine_edit, learn_from_edit, auto_assemble, trim_silence, generate_captions, suggest_broll, smart_reframe, suggest_graphics, suggest_music, semantic_tag, detect_scenes_visual, detect_speakers, generate_manuscript, extract_features, generate_proxy, embed_clips, score_cut_points, match_broll, suggest_pacing]
+        options:
+          type: ["string", "null"]
+        styleId:
+          type: ["string", "null"]
+          description: "ID of an editing style to apply (for generate_edit_plan)"
+      required:
+        - projectId
+        - type
+
+    Segment:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        videoId:
+          type: string
+        orderIndex:
+          type: integer
+        startTime:
+          type: number
+        endTime:
+          type: number
+        label:
+          type: ["string", "null"]
+        segmentType:
+          type: string
+          enum: [speech, music, silence, action, transition, highlight]
+        confidence:
+          type: ["number", "null"]
+        aiReason:
+          type: ["string", "null"]
+        included:
+          type: boolean
+        speedFactor:
+          type: ["number", "null"]
+        speedRampStart:
+          type: ["number", "null"]
+        speedRampEnd:
+          type: ["number", "null"]
+        speedCurve:
+          type: ["string", "null"]
+          enum: ["linear", "ease-in", "ease-out", "s-curve", null]
+        reverse:
+          type: ["boolean", "null"]
+        freeze:
+          type: ["boolean", "null"]
+        audioEnhancement:
+          type: ["string", "null"]
+        colorGrade:
+          type: ["string", "null"]
+          enum: ["none", "warm", "cool", "cinematic", "bw", "vivid", "muted", "sunset", "teal_orange", "desaturated", null]
+        transitionIn:
+          type: ["string", "null"]
+          enum: ["cut", "dissolve", "fade_black", "fade_white", "flash", "wipe_right", "zoom_in", null]
+        transitionInDuration:
+          type: ["number", "null"]
+        captionText:
+          type: ["string", "null"]
+        captionStyle:
+          type: ["string", "null"]
+          enum: ["none", "subtitle", "title", "lower_third", "kinetic", null]
+        audioMixLevel:
+          type: ["number", "null"]
+          description: "Clip's own audio volume (0.0–1.0)"
+        musicDuckLevel:
+          type: ["number", "null"]
+          description: "Background music level during this clip (0.0–1.0)"
+        graphicOverlays:
+          type: ["string", "null"]
+          description: "JSON array of AI-generated graphic overlay suggestions"
+        createdAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - videoId
+        - orderIndex
+        - startTime
+        - endTime
+        - segmentType
+        - included
+        - createdAt
+
+    CreateSegmentBody:
+      type: object
+      properties:
+        projectId:
+          type: string
+        videoId:
+          type: string
+        orderIndex:
+          type: integer
+        startTime:
+          type: number
+        endTime:
+          type: number
+        label:
+          type: ["string", "null"]
+        segmentType:
+          type: string
+          enum: [speech, music, silence, action, transition, highlight]
+        confidence:
+          type: ["number", "null"]
+        aiReason:
+          type: ["string", "null"]
+        included:
+          type: boolean
+      required:
+        - projectId
+        - videoId
+        - orderIndex
+        - startTime
+        - endTime
+        - segmentType
+        - included
+
+    UpdateSegmentBody:
+      type: object
+      properties:
+        startTime:
+          type: ["number", "null"]
+        endTime:
+          type: ["number", "null"]
+        label:
+          type: ["string", "null"]
+        orderIndex:
+          type: ["integer", "null"]
+        included:
+          type: ["boolean", "null"]
+        segmentType:
+          type: ["string", "null"]
+        speedFactor:
+          type: ["number", "null"]
+        speedRampStart:
+          type: ["number", "null"]
+        speedRampEnd:
+          type: ["number", "null"]
+        speedCurve:
+          type: ["string", "null"]
+        reverse:
+          type: ["boolean", "null"]
+        freeze:
+          type: ["boolean", "null"]
+        audioEnhancement:
+          type: ["string", "null"]
+        colorGrade:
+          type: ["string", "null"]
+        transitionIn:
+          type: ["string", "null"]
+        transitionInDuration:
+          type: ["number", "null"]
+        captionText:
+          type: ["string", "null"]
+        captionStyle:
+          type: ["string", "null"]
+        audioMixLevel:
+          type: ["number", "null"]
+          description: "Clip's own audio volume (0.0–1.0)"
+        musicDuckLevel:
+          type: ["number", "null"]
+          description: "Background music level during this clip (0.0–1.0)"
+        graphicOverlays:
+          type: ["string", "null"]
+          description: "JSON array of AI-generated graphic overlay suggestions"
+
+    Export:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        format:
+          type: string
+          enum: [mp4, mov, webm]
+        resolution:
+          type: string
+          enum: [1080p, 720p, 4k, vertical_1080, vertical_720]
+        status:
+          type: string
+          enum: [pending, rendering, completed, failed]
+        progress:
+          type: integer
+        filePath:
+          type: ["string", "null"]
+        fileSize:
+          type: ["integer", "null"]
+        downloadUrl:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - projectId
+        - format
+        - resolution
+        - status
+        - progress
+        - createdAt
+
+    CreateExportBody:
+      type: object
+      properties:
+        projectId:
+          type: string
+        format:
+          type: string
+          enum: [mp4, mov, webm]
+        resolution:
+          type: string
+          enum: [1080p, 720p, 4k, vertical_1080, vertical_720]
+      required:
+        - projectId
+        - format
+        - resolution
+
+    StatsOverview:
+      type: object
+      properties:
+        totalProjects:
+          type: integer
+        totalVideosUploaded:
+          type: integer
+        totalExports:
+          type: integer
+        totalAiJobsRun:
+          type: integer
+        averageEditTimeSavedMinutes:
+          type: number
+        projectsByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        projectsByFormat:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+        - totalProjects
+        - totalVideosUploaded
+        - totalExports
+        - totalAiJobsRun
+        - averageEditTimeSavedMinutes
+        - projectsByStatus
+        - projectsByFormat
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [project_created, video_uploaded, job_completed, export_ready, ai_analysis_done]
+        description:
+          type: string
+        projectId:
+          type: ["string", "null"]
+        projectName:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+      required:
+        - id
+        - type
+        - description
+        - timestamp
+
+    BeatMarker:
+      type: object
+      properties:
+        timestamp:
+          type: number
+        strength:
+          type: number
+        barPosition:
+          type: integer
+        isDownbeat:
+          type: boolean
+      required:
+        - timestamp
+        - strength
+        - barPosition
+        - isDownbeat
+
+    EmotionalSection:
+      type: object
+      properties:
+        startTime:
+          type: number
+        endTime:
+          type: number
+        emotion:
+          type: string
+        intensity:
+          type: number
+        description:
+          type: string
+      required:
+        - startTime
+        - endTime
+        - emotion
+        - intensity
+        - description
+
+    MusicAnalysis:
+      type: object
+      properties:
+        projectId:
+          type: string
+        bpm:
+          type: number
+        timeSignature:
+          type: string
+        key:
+          type: ["string", "null"]
+        mood:
+          type: string
+        energy:
+          type: number
+        danceability:
+          type: number
+        genre:
+          type: ["string", "null"]
+        themeDescription:
+          type: string
+        emotionalArc:
+          type: string
+        emotionalSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmotionalSection"
+        beatCount:
+          type: integer
+        totalDuration:
+          type: number
+        analyzedAt:
+          type: string
+      required:
+        - projectId
+        - bpm
+        - timeSignature
+        - mood
+        - energy
+        - danceability
+        - themeDescription
+        - emotionalArc
+        - emotionalSections
+        - beatCount
+        - totalDuration
+        - analyzedAt
+
+    AudioEnhancementPlan:
+      type: object
+      properties:
+        projectId:
+          type: string
+        preset:
+          type: string
+        noiseReduction:
+          type: string
+        voiceEnhancement:
+          type: string
+        stemSeparation:
+          type: string
+        loudnessTarget:
+          type: string
+        dynamicCompression:
+          type: string
+        deReverb:
+          type: string
+        eqProfile:
+          type: string
+        beatSyncBass:
+          type: boolean
+        aiReasoning:
+          type: string
+        perSegmentOverrides:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        analyzedAt:
+          type: string
+      required:
+        - projectId
+        - preset
+        - noiseReduction
+        - voiceEnhancement
+        - stemSeparation
+        - loudnessTarget
+        - dynamicCompression
+        - deReverb
+        - eqProfile
+        - beatSyncBass
+        - aiReasoning
+        - analyzedAt
+
+    BeatMap:
+      type: object
+      properties:
+        projectId:
+          type: string
+        bpm:
+          type: number
+        totalDuration:
+          type: number
+        beats:
+          type: array
+          items:
+            $ref: "#/components/schemas/BeatMarker"
+        barLines:
+          type: array
+          items:
+            type: number
+      required:
+        - projectId
+        - bpm
+        - totalDuration
+        - beats
+        - barLines

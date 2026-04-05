@@ -1,0 +1,55 @@
+uploads = []
+
+[[generated]]
+id = "SOdHOFz6ULyLh6xK1vXfB"
+uri = "file://artifacts/cutai-mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "57nDy5ct8yjlfEHbr_VU9"
+uri = "file://cutai_export.mp4"
+type = "video"
+title = "CutAI Export — Rules for Rulers Short (1080×1920, 107s)"
+
+[[outputs]]
+id = "OzEMTWXPm_oydo-z5Fq1E"
+uri = "file://cutai_export_smooth.mp4"
+type = "video"
+title = "CutAI Export — Smooth Transitions (1080×1920, 107s)"
+
+[[outputs]]
+id = "3axrTcsQh__Wqju3sDCI8"
+uri = "file://cutai_export_v3.mp4"
+type = "video"
+title = "CutAI Export v3 — Clean Cuts, Smooth Audio (1080×1920, 107s)"
+
+[[outputs]]
+id = "elwATOCHE3SYo0woQJuWG"
+uri = "file://cutai_export_v4.mp4"
+type = "video"
+title = "CutAI Export v4 — No Silent Gaps (1080×1920, 107s)"
+
+[[outputs]]
+id = "GOP9UgfASpm2BMnoqXrPO"
+uri = "file://cutai_export_v5.mp4"
+type = "video"
+title = "CutAI Export v5 — L-cut B-roll (1080×1920, 107s)"
+
+[[outputs]]
+id = "DdeQSfsdNir-0CApxi6XI"
+uri = "file://cutai_export_v6.mp4"
+type = "video"
+title = "CutAI Export v6 — Smooth Dissolve Transitions (1080×1920, 107s)"
+
+[[outputs]]
+id = "0XEApaCf378p3-Pbd-CQV"
+uri = "file://cutai_smart_cut.mp4"
+type = "video"
+title = "CutAI — Smart AI Cut (1080×1920, 65s, 24 segments)"
+
+[[outputs]]
+id = "rvammYSJzgY04xYr9ON29"
+uri = "file://cutai_v7.mp4"
+type = "video"
+title = "CutAI v7 — 11 segments, 60s, conservative pacing"

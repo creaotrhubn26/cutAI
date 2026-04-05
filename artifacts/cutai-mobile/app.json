@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "CutAI Mobile",
+    "slug": "cutai-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "cutai-mobile",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0e"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "CutAI needs camera access to record video for your projects.",
+        "NSPhotoLibraryUsageDescription": "CutAI needs access to your photo library to select videos for upload.",
+        "NSMicrophoneUsageDescription": "CutAI needs microphone access to record video with audio."
+      }
+    },
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "CutAI needs access to your photo library to select videos for upload.",
+          "cameraPermission": "CutAI needs camera access to record video for your projects.",
+          "microphonePermission": "CutAI needs microphone access to record video with audio."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

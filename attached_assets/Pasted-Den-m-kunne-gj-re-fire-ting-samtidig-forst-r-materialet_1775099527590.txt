@@ -1,0 +1,419 @@
+Den må kunne gjøre fire ting samtidig:
+
+forstå råmaterialet
+forstå hva slags video som skal lages
+ta redigeringsvalg som en erfaren editor
+sette sammen eksportklar video teknisk riktig
+
+Det viktigste å forstå er dette:
+En god AI-editor må ikke bare “se” video. Den må lære rytme, relevans, dramaturgi, kontinuitet, lydforståelse og preferanser. Moderne videomodeller sliter fortsatt med lang video og redigerte videoer, noe benchmark-arbeid fra 2025 også peker på.
+
+Hva AI-en må lære seg
+1. Innholdsforståelse
+
+AI-en må forstå hva som faktisk skjer i materialet:
+
+hvem som er i bildet
+hvem som snakker
+hva som er hovedhandling
+hvilke øyeblikk som er sterke
+hvilke klipp som er teknisk dårlige
+hvilke klipp som er duplikater eller nesten like
+
+Dette krever multimodal analyse av video, lyd, tale og tekst. Forskning på video understanding peker nettopp på at videoediting-scenarier krever kobling mellom flere modaliteter og god forståelse over lange tidsforløp.
+
+Det betyr at AI-en må lære å oppdage:
+
+shot boundaries
+ansikter og identiteter
+objekter og handlinger
+kamerabevegelse
+emosjonelle høydepunkter
+applaus, latter, jubel, stillhet, musikkdrop, punchlines
+dårlige takes: blur, risting, overeksponering, fokusfeil, clipping i lyd
+
+For shot detection finnes det etablerte verktøy som PySceneDetect, som bruker blant annet content/adaptive detection for å finne klippskift. For tracking og bevegelsesanalyse brukes ofte OpenCV-funksjoner som optical flow og tracking-moduler.
+
+2. Redaksjonell forståelse
+
+Her ligger den virkelige forskjellen mellom en “smart klippemaskin” og en ekte AI-editor.
+
+AI-en må lære:
+
+hva som er hook
+hva som er payoff
+hva som er b-roll
+når et klipp bør kuttes tidlig
+når man skal holde et klipp litt lenger
+når reaksjonsskudd bør brukes
+hvordan bygge opp spenning, ro eller energi
+
+Dette er ikke bare computer vision. Dette er editorial intelligence.
+
+Du må derfor lære AI-en regler som:
+
+åpning må skape interesse raskt
+repetisjon skal reduseres
+dårlige pauser skal trimmes
+talen skal være tydelig
+b-roll skal støtte det som sies
+musikk og visuelle beats skal passe sammen
+ansiktsuttrykk og reaksjoner skal få riktig plass
+
+Med andre ord må AI-en lære hva som gjør en edit “bra” for en bestemt sjanger.
+
+En bryllupsfilm, en podcast highlight, en YouTube-video og en reklamefilm må redigeres helt forskjellig. Benchmarks på redigerte videoer viser også at forståelse av “edited video” er et eget problemområde, ikke bare vanlig videoforståelse.
+
+3. Stilforståelse
+
+Hvis AI-en skal redigere “nøyaktig og godt”, må den ikke bare lage en generell edit. Den må lære stil.
+
+Den må forstå forskjellen på:
+
+cinematic
+documentary
+social first
+fast-paced TikTok
+premium commercial
+talking-head YouTube
+wedding storytelling
+educational explainer
+
+Det betyr at AI-en må trenes eller styres med:
+
+klippelengde-mønstre
+overgangspreferanser
+pacing
+musikkbruk
+tekstingstil
+fargeprofil
+intro/outro-logikk
+formatvalg: 16:9, 9:16, 1:1
+
+I praksis betyr det at du trenger et style layer oppå forståelseslaget.
+
+4. Tidslig forståelse
+
+Dette er en av de vanskeligste delene.
+
+AI-en må forstå video over tid, ikke bare frame for frame. Long-video benchmarks viser at dette fortsatt er utfordrende for dagens multimodale modeller.
+
+Den må kunne skjønne:
+
+hva som skjer først, midt og sist
+hvilke klipp som hører sammen
+hvilke reaksjoner som matcher hvilken dialog
+når man må kutte til en annen vinkel
+hvordan man bygger en sekvens, ikke bare velger enkeltklipp
+
+Det er derfor en god AI-editor ofte bør bygges som:
+
+en modell for segmentering
+en modell for forståelse
+en modell for rangering
+en modell for sekvensering
+en motor for rendering/export
+
+Ikke én gigantmodell som gjør alt alene.
+
+Den tekniske arkitekturen du faktisk trenger
+
+Den beste måten å bygge dette på er som en pipeline.
+
+Lag 1: Ingest og synk
+
+Her tar du inn:
+
+video
+lyd
+multicam
+ekstern lyd
+metadata
+tidskoder
+
+Du må transkode, lage proxies og standardisere frame rate / lyd. FFmpeg er helt sentralt her, siden det håndterer demuxing, muxing, filtergraphs og concat/filter-kjeder for video og lydbehandling.
+
+Lag 2: Analyse
+
+Her analyserer du alt råmateriale.
+
+Du trenger typisk:
+
+scene detection
+ansiktsgjenkjenning
+speaker diarization
+speech-to-text med timestamps
+object/action detection
+quality scoring
+emotion / energy estimation
+music beat detection
+silence detection
+duplicate/similarity detection
+
+Transkripsjon med ord- og segmenttidskoder, og diarization, er viktig for å forstå dialog og speaker changes. OpenAI-dokumentasjonen viser støtte for tidsstempler og diarized transcript-segmenter i relevante speech-to-text-formater.
+
+Lag 3: Semantisk forståelse
+
+Nå må systemet gå fra “det finnes en person som snakker” til “dette er et viktig sitat”.
+
+Her lager du metadata som:
+
+“sterk opening line”
+“reaction shot”
+“emotional peak”
+“usable b-roll”
+“establishing shot”
+“bad audio”
+“camera shake”
+“laughter moment”
+“call to action”
+
+Det er dette som gjør at AI-en kan redigere med hensikt.
+
+Lag 4: Editorial policy engine
+
+Dette er hjernen.
+
+Her definerer du regler per format, for eksempel:
+
+Podcast clip
+
+start med høyverdi-setning
+fjern tomprat
+kutt pauser over x ms
+veksle mellom taler og reaction crops
+legg på subtitles
+hold total lengde 30–90 sek
+
+Wedding highlight
+
+prioriter emosjonelle blikk, løfter, reaksjoner
+bruk establishing shots mellom sekvenser
+unngå for harde jump cuts
+la musikken styre tempo i visse partier
+bygg opp mot vows / first look / first dance
+
+Commercial
+
+første 2 sek må levere hook
+vis produkt tidlig
+høy shot-variasjon
+lav toleranse for dødtid
+avslutt med tydelig payoff eller CTA
+
+AI-en må altså lære både generelle klipperegler og sjangerspesifikke regler.
+
+Lag 5: Timeline generation
+
+Her bygger systemet faktisk en timeline:
+
+velger clips
+trimmer in/out-points
+rekkefølge
+cutaways
+musikksynk
+captions
+zoom/crop/reframe
+lydnivåer
+ducking
+basic transitions
+
+Her ville jeg ikke stolt blindt på en LLM alene. Jeg ville brukt:
+
+en rangering-/scoringsmodell
+en policy engine
+en constrained timeline builder
+
+Ellers får du flotte beskrivelser, men ustabile edits.
+
+Lag 6: Render engine
+
+Til slutt må systemet eksportere sikkert og repeterbart.
+Her er FFmpeg igjen svært viktig, siden filtergraphs og concat-mekanismer gjør det mulig å bygge en robust render pipeline.
+
+Hvilke ferdigheter AI-en må trenes på
+
+Hvis jeg skulle oppsummere det mest presist, må AI-en lære seks kompetanser:
+
+A. Perception
+
+Se og høre hva som skjer.
+
+B. Selection
+
+Velge de riktige klippene.
+
+C. Timing
+
+Forstå nøyaktig hvor et klipp bør starte og slutte.
+
+D. Sequencing
+
+Sette sammen klipp i riktig rekkefølge.
+
+E. Style
+
+Etterligne riktig redigeringsspråk.
+
+F. Optimization
+
+Forbedre videoen for målet: retention, følelse, tydelighet eller konvertering.
+
+Hvilke data du trenger
+
+For å gjøre dette bra trenger du ikke bare “mye video”. Du trenger riktige treningsdata.
+
+Det beste datasettet er ofte:
+
+råopptak
+ferdig redigert versjon
+timeline/XML/EDL
+eventuelt notater fra editor
+info om format og mål
+
+Da kan modellen lære:
+
+hva som ble brukt
+hva som ble kastet
+hvor det ble klippet
+hvilke mønstre en menneskelig editor valgte
+
+Det aller sterkeste er paired data:
+
+raw footage -> final edit
+
+Enda bedre:
+
+raw footage + transcript + music + edit notes -> final timeline
+
+Da kan du lære ekte edit-beslutninger, ikke bare generell videoforståelse.
+
+Hvordan AI-en bør trenes
+
+Du bør ikke starte med å trene en enorm end-to-end modell fra null. Det er dyrt og unødvendig.
+
+Bedre oppsett:
+
+Fase 1: bruk eksisterende modeller
+
+Bruk ferdige modeller for:
+
+transkripsjon
+diarization
+scene detection
+face/object detection
+embeddings
+summarization
+Fase 2: bygg ditt eget scoringssystem
+
+Lag modeller som rangerer:
+
+beste takes
+beste sitater
+emosjonelle topper
+visuelt sterke klipp
+clip usefulness per sjanger
+Fase 3: lær av menneskelige edits
+
+Tren på tidligere redigerte prosjekter og lær:
+
+clip importance
+average shot duration
+when b-roll replaces A-roll
+when captions appear
+when editor cuts on speech vs music
+Fase 4: reinforcement fra menneskelig feedback
+
+Mennesker må kunne si:
+
+denne editen føles treg
+denne hooken er dårlig
+for mye repetisjon
+feil reaksjonsskudd
+denne versjonen er best
+
+Da kan du lære en reward model for “god edit”.
+
+Det AI-en ofte feiler på
+
+Dette er hvor mange bygger feil system:
+
+De tror AI-editor =
+“transkriber video + finn highlights + legg på captions.”
+
+Det er bare starten.
+
+Det som ofte feiler i praksis er:
+
+dårlig forståelse av kontekst over lang video
+feil prioritering av hva som er viktig
+dårlige cut points
+monotont klippemønster
+dårlig musikksynk
+for aggressive jump cuts
+feil b-roll over feil dialog
+manglende dramaturgi
+ingen forståelse for merkevare eller stil
+
+Forskning på edited video understanding og long-video understanding viser nettopp at disse områdene fortsatt er vanskelige for dagens modeller.
+
+Hvis du vil at den skal være virkelig god
+
+Da må AI-en lære tre nivåer samtidig:
+
+Nivå 1: teknisk kvalitet
+skarphet
+eksponering
+stabilitet
+lydkvalitet
+shot boundary
+frame consistency
+Nivå 2: semantikk
+hva som skjer
+hvem som betyr noe
+hva som er viktig
+hva som er reaksjon vs hovedinnhold
+Nivå 3: editorial taste
+hva som føles riktig
+hva som gir flyt
+hva som bygger emosjon
+hva som holder på seeren
+
+Det tredje nivået er det vanskeligste.
+Det er der produktet ditt enten blir “AI gimmick” eller “faktisk nyttig editor”.
+
+Min anbefalte oppskrift
+
+Hvis målet ditt er å bygge dette realistisk og godt, ville jeg gjort det slik:
+
+Steg 1: Velg én tydelig use case.
+For eksempel:
+
+podcast clips
+wedding highlights
+talking-head social media clips
+ad creatives
+
+Steg 2: Bygg analysepipen først.
+Ikke start med full auto-edit. Først må systemet forstå materialet.
+
+Steg 3: Lag et internt “editor brain schema”.
+Eksempel:
+
+hook score
+clarity score
+emotion score
+b-roll value
+visual quality
+speech importance
+brand fit
+repetition risk
+
+Steg 4: Tren ranking og cut prediction.
+Det er ofte her kvaliteten kommer.
+
+Steg 5: Bygg timeline assembly med regler.
+Ikke la generering være helt fri.
+
+Steg 6: Legg på human feedback-loop.
+De beste systemene blir ofte semi-autonome først, og selvdrevne senere.

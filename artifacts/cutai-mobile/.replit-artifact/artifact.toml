@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/mobile/"
+title = "CutAI Mobile — Capture & Upload"
+version = "1.0.0"
+id = "artifacts/cutai-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/mobile/" ]
+localPort = 18790
+
+[services.development]
+run = "pnpm --filter @workspace/cutai-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/cutai-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/cutai-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "18790"
+BASE_PATH = "/mobile/"

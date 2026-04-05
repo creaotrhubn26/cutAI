@@ -1,0 +1,50 @@
+modules = ["nodejs-24", "python-3.12", "python3", "postgresql-16"]
+
+[[artifacts]]
+id = "artifacts/api-server"
+
+[[artifacts]]
+id = "artifacts/mockup-sandbox"
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+GOOGLE_SERVICE_ACCOUNT_EMAIL = "drive-uploader@creatorhubn-com.iam.gserviceaccount.com"
+GOOGLE_PROJECT_ID = "Creatorhubn1"
+GOOGLE_CLIENT_ID = "256648631702-o1ncl3el3pjrl82ah4c1h6b0vnr7icvt.apps.googleusercontent.com"
+GOOGLE_REDIRECT_URI = "http://localhost:5050/api/auth/google/callback"
+GOOGLE_SEARCH_ENGINE_ID = "44aefefd428a54f45"
+GOOGLE_ADMIN_EMAIL = "daniel@creatorhubn.com"
+GOOGLE_WORKSPACE_DOMAIN = "creatorhubn.com"
+GOOGLE_DRIVE_FOLDER_ID = "1MvnhPJb9cZKXvGaQ_r3GFSowWSSGXB8J"
+GOOGLE_IMPERSONATE_USER = "daniel@creatorhubn.com"
+GOOGLE_USE_IMPERSONATION = "true"
+GOOGLE_TAG_MANAGER_ID = "GTM-MFWW7X83"
+GOOGLE_ANALYTICS_ID = "G-C2BKSJYP9D"
+GA4_PROPERTY_ID = "502879639"
+GSC_SITE_URL = "sc-domain:creatorhubn.com"
+GOOGLE_CLOUD_QUOTA_PROJECT = "creatorhubn-com"
+GOOGLE_DRIVE_REFRESH_TOKEN = ""
+
+[nix]
+channel = "stable-25_05"
+packages = ["ffmpeg-full", "freetype", "lcms2", "libimagequant", "libjpeg", "libsndfile", "libtiff", "libwebp", "libxcrypt", "oneDNN", "openjpeg", "re2", "tcl", "tk", "zlib"]

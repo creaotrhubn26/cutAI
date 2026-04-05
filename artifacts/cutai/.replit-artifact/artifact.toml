@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "CutAI — AI Video Editor"
+version = "1.0.0"
+id = "artifacts/cutai"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25824
+
+[services.development]
+run = "pnpm --filter @workspace/cutai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/cutai", "run", "build" ]
+publicDir = "artifacts/cutai/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25824"
+BASE_PATH = "/"

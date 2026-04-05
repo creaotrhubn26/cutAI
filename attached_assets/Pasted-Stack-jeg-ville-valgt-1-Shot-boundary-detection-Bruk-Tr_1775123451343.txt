@@ -1,0 +1,185 @@
+Stack jeg ville valgt
+
+1) Shot boundary detection
+
+Bruk TransNetV2.
+
+Hvorfor:
+	•	Den er laget spesifikt for shot boundary detection.
+	•	Repoet er offisielt og beskriver modellen som en effektiv arkitektur for raske shot-overganger.  ￼
+
+Når du bruker den:
+	•	første steg etter ingest
+	•	dele video i shots/scener
+	•	lage grunnstrukturen for videre analyse
+
+2) Speech-to-text
+
+Bruk Whisper.
+
+Hvorfor:
+	•	For en editor er transkripsjon med timestamps helt sentralt for pausekutt, subtitles, highlight scoring og hook-detection.
+	•	Whisper er fortsatt et av de mest praktiske valgene for dette i en produksjonspipeline.
+
+Jeg nevner Whisper her som anbefaling basert på etablert bruksmønster, men jeg har ikke hentet en fersk offisiell kilde i denne runden for akkurat Whisper-versjonene. Så behold den som en sterk anbefaling, ikke som et spesifikt “nyeste offisielle vektvalg”.
+
+3) Video backbone / feature extraction
+
+Bruk VideoMAE eller VideoMAE v2.
+
+Hvorfor:
+	•	De offisielle repoene tilbyr model zoo / nedlastingslenker for pretrained weights.
+	•	Dette er veldig gode backbone-modeller for å trekke ut videofeatures som du senere kan bruke til scoring, retrieval og rangering.  ￼
+
+Når du bruker den:
+	•	etter shot detection
+	•	trekk embeddings per shot eller per klippvindu
+	•	bruk embeddingene i highlight scoring og retrieval
+
+4) Multimodal video understanding
+
+Bruk InternVideo eller Video-LLaMA / VideoLLaMA 3.
+
+Hvorfor:
+	•	InternVideo-repoet er eksplisitt bygget som en serie video foundation models for multimodal understanding, inkludert nyere generasjoner som InternVideo2 og 2.5.  ￼
+	•	Video-LLaMA oppgir at weights for å kjøre modellen er tilgjengelige, og repoet er laget for audio-visuell instruksjonstuning.  ￼
+	•	VideoLLaMA 3 beskrives som en serie multimodale foundation models med sterk video understanding-kapasitet.  ￼
+
+Når du bruker dem:
+	•	semantisk tagging av shots
+	•	“hva skjer her?”
+	•	“er dette en reaction shot?”
+	•	“er dette et establishing shot?”
+	•	“er dette sannsynligvis et emosjonelt øyeblikk?”
+	•	video-til-tekst / retrieval-lignende oppgaver
+
+Min anbefalte prioritet
+
+Hvis målet ditt er å bygge noe som faktisk kan bli en bra auto-editor, ville jeg prioritert slik:
+
+MVP
+	•	TransNetV2
+	•	Whisper
+	•	VideoMAE
+
+Videre steg
+	•	InternVideo eller VideoLLaMA 3 for dypere forståelse
+	•	egen scoringmodell eller regler for editorial logic
+
+Grunnen er at du først trenger:
+	1.	stabil segmentering
+	2.	stabil transkripsjon
+	3.	stabile features
+
+Først deretter er det verdt å legge på tung multimodal forståelse.
+
+Hvordan koble dem sammen
+
+Tenk denne pipelineen:
+	1.	Ingest
+
+	•	FFmpeg normaliserer video og lyd
+	•	generer proxy om nødvendig
+
+	2.	Segmentering
+
+	•	TransNetV2 finner shot boundaries
+
+	3.	Transkripsjon
+
+	•	Whisper gir ord/segment-timestamps
+
+	4.	Videofeatures
+
+	•	VideoMAE lager embeddings per shot
+
+	5.	Semantisk forståelse
+
+	•	InternVideo eller VideoLLaMA analyserer viktige shots og klasser
+
+	6.	Editorial scoring
+
+	•	din egen logikk rangerer klipp basert på:
+	•	hook
+	•	clarity
+	•	emotion
+	•	repetition risk
+	•	visual quality
+	•	b-roll value
+
+	7.	Timeline builder
+
+	•	genererer JSON/EDL
+
+	8.	Rendering
+
+	•	FFmpeg rendrer sluttvideo
+
+Det er akkurat her produktfordelen din kommer: ikke i weights alene, men i editorial logic-laget.
+
+Hva de ulike weightsene faktisk gir deg
+
+TransNetV2
+	•	gir deg grenser mellom shots
+	•	ikke forståelse av dramaturgi
+
+VideoMAE
+	•	gir deg sterke videorepresentasjoner
+	•	ikke redigeringsvalg
+
+InternVideo / VideoLLaMA
+	•	gir bedre semantisk forståelse
+	•	ikke ferdig timeline eller pacing
+
+Det betyr at du fortsatt må bygge:
+	•	cut prediction
+	•	pacing
+	•	shot selection
+	•	sequence logic
+	•	style profiles
+
+Det mest realistiske tech-valget for deg
+
+Hvis du vil være pragmatisk:
+
+Beste “nå med en gang”-stack
+	•	TransNetV2 for shot detection  ￼
+	•	Whisper for transcript/subtitles
+	•	VideoMAE v2 for embeddings/features  ￼
+	•	InternVideo2 eller VideoLLaMA 3 for higher-level tagging  ￼
+
+Hvis du vil minimere kompleksitet i første versjon
+	•	dropp tung multimodal modell i starten
+	•	bruk transcript + shot boundaries + enkle visual quality features
+	•	bygg først editorial brain
+
+Det vil ofte gi bedre MVP enn å prøve å starte med en gigantisk video-LLM.
+
+Hvor du finner de offisielle repoene
+
+De mest relevante jeg ville sett på først er:
+	•	TransNetV2 official repo for shot boundary detection.  ￼
+	•	VideoMAE official PyTorch implementation, med Hugging Face-modeller og offisiell kode.  ￼
+	•	VideoMAE v2 fra OpenGVLab, med model zoo / nedlastingslenker for weights.  ￼
+	•	InternVideo official repo fra OpenGVLab, som samler flere generasjoner video foundation models.  ￼
+	•	Video-LLaMA official repo med weights-instruksjoner.  ￼
+	•	VideoLLaMA 3 official repo for nyere multimodal video understanding.  ￼
+
+Min ærlige anbefaling
+
+Hvis du spør “hvilke weights skal vi faktisk starte med?”:
+
+Start med:
+	•	TransNetV2
+	•	VideoMAE v2
+	•	Whisper
+
+Legg til senere:
+	•	InternVideo2 eller VideoLLaMA 3
+
+Og bygg din egen:
+	•	editor score engine
+	•	timeline generator
+	•	style profiles
+
+For det er der verdien ligger. Alle kan laste ned weights. Få klarer å bygge et system som tar gode redigeringsbeslutninger.
