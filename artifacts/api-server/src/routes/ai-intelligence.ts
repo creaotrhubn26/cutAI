@@ -977,7 +977,7 @@ router.post("/projects/:id/detect-intro", async (req, res) => {
 
   const videos = await db.query.videosTable.findMany({
     where: eq(videosTable.projectId, req.params.id),
-    columns: { id: true, transcript: true, duration: true },
+    columns: { id: true, transcript: true, durationSeconds: true },
   });
   if (!videos.length) return res.status(400).json({ error: "No videos in project" });
 
@@ -1043,7 +1043,7 @@ router.post("/projects/:id/detect-outro", async (req, res) => {
 
   const videos = await db.query.videosTable.findMany({
     where: eq(videosTable.projectId, req.params.id),
-    columns: { id: true, transcript: true, duration: true },
+    columns: { id: true, transcript: true, durationSeconds: true },
   });
   if (!videos.length) return res.status(400).json({ error: "No videos in project" });
 

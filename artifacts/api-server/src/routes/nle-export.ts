@@ -264,7 +264,7 @@ router.get("/projects/:id/export.fcpxml", async (req, res) => {
     if (isReversed) noteparts.push("REVERSE");
     if (isFrozen) noteparts.push("FREEZE");
     if (seg.colorGrade && seg.colorGrade !== "none") noteparts.push(`Grade: ${seg.colorGrade}`);
-    if (seg.emotionalTone ?? (manuscriptScenes[i]?.emotionalTone)) noteparts.push(`Tone: ${(seg as any).emotionalTone ?? manuscriptScenes[i]?.emotionalTone ?? ""}`);
+    if ((seg as any).emotionalTone ?? (manuscriptScenes[i]?.emotionalTone)) noteparts.push(`Tone: ${(seg as any).emotionalTone ?? manuscriptScenes[i]?.emotionalTone ?? ""}`);
     lines.push(`              <note>${xmlEscape(noteparts.join(" | "))}</note>`);
 
     // Speed remap / timeMap

@@ -172,7 +172,7 @@ router.post("/projects/:id/apply-pacing", async (req, res) => {
 
   const included = segs
     .filter(s => s.included !== false)
-    .sort((a, b) => (a.orderIndex ?? a.position ?? 0) - (b.orderIndex ?? b.position ?? 0));
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
 
   let applied = 0;
   for (const issue of issues) {

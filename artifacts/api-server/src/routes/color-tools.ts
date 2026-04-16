@@ -59,9 +59,10 @@ function parseLutLibrary(raw: string | null): LutEntry[] {
 
 router.post("/projects/:id/upload-lut", lutUpload.single("lut"), async (req, res) => {
   if (!req.file) return void res.status(400).json({ error: "No LUT file provided" });
+  const projectId = String(req.params.id);
 
   const project = await db.query.projectsTable.findFirst({
-    where: eq(projectsTable.id, req.params.id),
+    where: eq(projectsTable.id, projectId),
     columns: { id: true, lutLibrary: true },
   });
   if (!project) return void res.status(404).json({ error: "Project not found" });
@@ -78,14 +79,14 @@ router.post("/projects/:id/upload-lut", lutUpload.single("lut"), async (req, res
 
   await db.update(projectsTable)
     .set({ lutLibrary: JSON.stringify(library), updatedAt: new Date() })
-    .where(eq(projectsTable.id, req.params.id));
+    .where(eq(projectsTable.id, projectId));
 
   res.json({ lut: entry, library, message: `LUT "${entry.name}" uploaded and added to project library` });
 });
 
 router.get("/projects/:id/lut-library", async (req, res) => {
   const project = await db.query.projectsTable.findFirst({
-    where: eq(projectsTable.id, req.params.id),
+    where: eq(projectsTable.id, String(req.params.id)),
     columns: { lutLibrary: true },
   });
   if (!project) return void res.status(404).json({ error: "Project not found" });

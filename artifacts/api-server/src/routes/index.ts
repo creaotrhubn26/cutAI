@@ -28,6 +28,7 @@ import exportToolsRouter from "./export-tools";
 import socialIntelligenceRouter from "./social-intelligence";
 import socialUploadRouter from "./social-upload";
 import thumbnailsRouter from "./thumbnails";
+import workflowsRouter from "./workflows";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use(exportToolsRouter);
 router.use(socialIntelligenceRouter);
 router.use(socialUploadRouter);
 router.use(thumbnailsRouter);
+router.use(workflowsRouter);
 
 export default router;

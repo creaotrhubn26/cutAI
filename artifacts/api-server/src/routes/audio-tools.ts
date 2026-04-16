@@ -160,7 +160,7 @@ router.post("/projects/:id/detect-wind-noise", async (req, res) => {
 
   const videos = await db.query.videosTable.findMany({
     where: eq(videosTable.projectId, req.params.id),
-    columns: { id: true, filename: true, transcript: true, duration: true },
+    columns: { id: true, filename: true, transcript: true, durationSeconds: true },
   });
 
   // Heuristic: flag clips where the video is outdoors or has wind-related transcript words
@@ -635,7 +635,7 @@ router.post("/projects/:id/detect-stems", async (req, res) => {
 
   const segments = await db.query.segmentsTable.findMany({
     where: and(eq(segmentsTable.projectId, req.params.id), eq(segmentsTable.included, true)),
-    columns: { id: true, inPoint: true, outPoint: true, transcript: true, audioMixLevel: true, musicDuckLevel: true },
+    columns: { id: true, inPoint: true, outPoint: true, captionText: true, audioMixLevel: true, musicDuckLevel: true },
   });
 
   let elapsed = 0;
@@ -646,7 +646,7 @@ router.post("/projects/:id/detect-stems", async (req, res) => {
     const segStart = elapsed;
     const segEnd = elapsed + dur;
 
-    const hasTranscript = !!seg.transcript && seg.transcript.trim().length > 5;
+    const hasTranscript = !!seg.captionText && seg.captionText.trim().length > 5;
     // musicDuckLevel=null means no music config; =1 means disabled/full volume (not actively ducked)
     const overlapsMusic = seg.musicDuckLevel !== null && seg.musicDuckLevel !== 1 && (seg.musicDuckLevel ?? 0) > 0;
 

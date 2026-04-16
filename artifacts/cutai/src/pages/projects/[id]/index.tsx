@@ -53,6 +53,7 @@ import { StoryScriptPanel } from "@/components/StoryScriptPanel";
 import { AudioMixPanel } from "@/components/AudioMixPanel";
 import { PacingPanel } from "@/components/PacingPanel";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { DualWorkflowPanel } from "@/components/DualWorkflowPanel";
 
 export default function ProjectWorkspace() {
   const params = useParams();
@@ -908,8 +909,9 @@ export default function ProjectWorkspace() {
       const leftSeg = (segments ?? []).find(s => s.id === leftId);
       if (leftSeg) {
         const candidateBoundary = leftSeg.endTime + rawDelta;
-        // Find nearest beat within 0.3s snap radius
-        const nearest = beatMap.beats.reduce<number | null>((best, b) => {
+        // Find nearest beat within 0.3s snap radius (beats may be BeatMarker[] or number[])
+        const beatTimes: number[] = (beatMap.beats ?? []).map((b: any) => typeof b === "number" ? b : b.timestamp);
+        const nearest = beatTimes.reduce<number | null>((best, b) => {
           if (best === null || Math.abs(b - candidateBoundary) < Math.abs(best - candidateBoundary)) return b;
           return best;
         }, null);
@@ -2340,6 +2342,8 @@ export default function ProjectWorkspace() {
             <TabsContent value="ai" className="flex-1 overflow-hidden m-0 data-[state=active]:flex flex-col">
               <ScrollArea className="flex-1 p-3">
                 <div className="space-y-1.5">
+                  {/* ── Dual End-to-End Workflow (one-click) ─────────────── */}
+                  <DualWorkflowPanel projectId={id} videosCount={videos?.length ?? 0} />
                   {/* ── FCP-style Pipeline ─────────────────────────────────── */}
                   {(() => {
                     // Script-mode badge
@@ -2728,7 +2732,7 @@ export default function ProjectWorkspace() {
                                 if (!selectedGenre) return;
                                 setGenreApplying(true); setGenreResult(null);
                                 try {
-                                  await fetch(`${API_BASE}/projects/${projectId}/genre-preset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ genre: selectedGenre, applyPacing: false }) });
+                                  await fetch(`${API_BASE}/projects/${id}/genre-preset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ genre: selectedGenre, applyPacing: false }) });
                                   setGenreResult({ segmentsAdjusted: 0 });
                                   toast({ title: `Genre: ${selectedGenre.replace(/_/g," ")}`, description: "Saved — shapes next Edit Plan", duration: 2000 });
                                 } finally { setGenreApplying(false); }
@@ -2741,7 +2745,7 @@ export default function ProjectWorkspace() {
                                 if (!selectedGenre) return;
                                 setGenreApplying(true); setGenreResult(null);
                                 try {
-                                  const r = await fetch(`${API_BASE}/projects/${projectId}/genre-preset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ genre: selectedGenre, applyPacing: true }) });
+                                  const r = await fetch(`${API_BASE}/projects/${id}/genre-preset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ genre: selectedGenre, applyPacing: true }) });
                                   const d = await r.json();
                                   setGenreResult({ segmentsAdjusted: d.segmentsAdjusted ?? 0 });
                                   refetchSegments?.();
@@ -2766,7 +2770,7 @@ export default function ProjectWorkspace() {
                             onClick={async () => {
                               setArcAssigning(true); setArcResult(null);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/assign-story-arc`, { method: "POST" });
+                                const r = await fetch(`${API_BASE}/projects/${id}/assign-story-arc`, { method: "POST" });
                                 const d = await r.json();
                                 setArcResult({ assigned: d.assigned, total: d.total });
                                 refetchSegments?.();
@@ -2804,7 +2808,7 @@ export default function ProjectWorkspace() {
                               if (!feedbackText.trim()) return;
                               setFeedbackLoading(true); setFeedbackResult(null);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/redit-from-feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ feedback: feedbackText }) });
+                                const r = await fetch(`${API_BASE}/projects/${id}/redit-from-feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ feedback: feedbackText }) });
                                 const d = await r.json();
                                 setFeedbackResult({ adjustmentsApplied: d.adjustmentsApplied });
                                 refetchSegments?.();
@@ -2865,7 +2869,7 @@ export default function ProjectWorkspace() {
                               className="w-full text-[9px] h-6 rounded border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 flex items-center justify-center gap-1"
                               onClick={async () => {
                                 try {
-                                  const r = await fetch(`${API_BASE}/projects/${projectId}/confidence-report`);
+                                  const r = await fetch(`${API_BASE}/projects/${id}/confidence-report`);
                                   const d = await r.json();
                                   setConfidenceReport({ avgConfidence: d.avgConfidence, distribution: d.distribution, recommendation: d.recommendation });
                                 } catch {}
@@ -2902,7 +2906,7 @@ export default function ProjectWorkspace() {
                                 const newVal = !editDiversityGuard;
                                 setDiversityGuardLoading(true);
                                 try {
-                                  await fetch(`${API_BASE}/projects/${projectId}/diversity-guard`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: newVal }) });
+                                  await fetch(`${API_BASE}/projects/${id}/diversity-guard`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: newVal }) });
                                   setEditDiversityGuard(newVal);
                                   toast({ title: newVal ? "Diversity guard ON" : "Diversity guard OFF", duration: 1500 });
                                 } finally { setDiversityGuardLoading(false); }
@@ -2916,7 +2920,7 @@ export default function ProjectWorkspace() {
                               className="w-full text-[9px] h-6 rounded border border-teal-500/30 text-teal-400 hover:bg-teal-500/10 flex items-center justify-center gap-1"
                               onClick={async () => {
                                 try {
-                                  const r = await fetch(`${API_BASE}/projects/${projectId}/diversity-check`);
+                                  const r = await fetch(`${API_BASE}/projects/${id}/diversity-check`);
                                   const d = await r.json();
                                   setDiversityReport({ violationCount: d.violationCount, isHealthy: d.isHealthy, summary: d.summary });
                                 } catch {}
@@ -2957,7 +2961,7 @@ export default function ProjectWorkspace() {
                                 if (!selectedPlatform) return;
                                 setPlatformPaceLoading(true); setPlatformPaceResult(null);
                                 try {
-                                  const r = await fetch(`${API_BASE}/projects/${projectId}/platform-pace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: selectedPlatform, dryRun: true }) });
+                                  const r = await fetch(`${API_BASE}/projects/${id}/platform-pace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: selectedPlatform, dryRun: true }) });
                                   const d = await r.json();
                                   setPlatformPaceResult({ modifiedCount: d.modifiedCount, newAvgClipSec: d.newAvgClipSec });
                                 } finally { setPlatformPaceLoading(false); }
@@ -2970,7 +2974,7 @@ export default function ProjectWorkspace() {
                                 if (!selectedPlatform) return;
                                 setPlatformPaceLoading(true); setPlatformPaceResult(null);
                                 try {
-                                  const r = await fetch(`${API_BASE}/projects/${projectId}/platform-pace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: selectedPlatform, dryRun: false }) });
+                                  const r = await fetch(`${API_BASE}/projects/${id}/platform-pace`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: selectedPlatform, dryRun: false }) });
                                   const d = await r.json();
                                   setPlatformPaceResult({ modifiedCount: d.modifiedCount, newAvgClipSec: d.newAvgClipSec });
                                   refetchSegments?.();
@@ -2997,7 +3001,7 @@ export default function ProjectWorkspace() {
                             onClick={async () => {
                               setDialogueBrollLoading(true); setDialogueBrollResult(null);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/dialogue-broll`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
+                                const r = await fetch(`${API_BASE}/projects/${id}/dialogue-broll`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun: true }) });
                                 const d = await r.json();
                                 setDialogueBrollResult({ matchesFound: d.matchesFound ?? 0 });
                                 if (d.matchesFound > 0) {
@@ -3051,7 +3055,7 @@ export default function ProjectWorkspace() {
                             onClick={async () => {
                               setIntroDetectLoading(true);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/detect-intro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "scan" }) });
+                                const r = await fetch(`${API_BASE}/projects/${id}/detect-intro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "scan" }) });
                                 const d = await r.json();
                                 setIntroDetectResult(d);
                               } catch { toast({ title: "Scan failed", variant: "destructive" }); }
@@ -3071,7 +3075,7 @@ export default function ProjectWorkspace() {
                                 onClick={async () => {
                                   setIntroDetectLoading(true);
                                   try {
-                                    const r = await fetch(`${API_BASE}/projects/${projectId}/detect-intro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cut" }) });
+                                    const r = await fetch(`${API_BASE}/projects/${id}/detect-intro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cut" }) });
                                     const d = await r.json();
                                     setIntroDetectResult(d);
                                     refetchSegments?.();
@@ -3115,7 +3119,7 @@ export default function ProjectWorkspace() {
                             onClick={async () => {
                               setOutroDetectLoading(true);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/detect-outro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "scan" }) });
+                                const r = await fetch(`${API_BASE}/projects/${id}/detect-outro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "scan" }) });
                                 const d = await r.json();
                                 setOutroDetectResult(d);
                               } catch { toast({ title: "Scan failed", variant: "destructive" }); }
@@ -3135,7 +3139,7 @@ export default function ProjectWorkspace() {
                                 onClick={async () => {
                                   setOutroDetectLoading(true);
                                   try {
-                                    const r = await fetch(`${API_BASE}/projects/${projectId}/detect-outro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cut" }) });
+                                    const r = await fetch(`${API_BASE}/projects/${id}/detect-outro`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cut" }) });
                                     const d = await r.json();
                                     setOutroDetectResult(d);
                                     refetchSegments?.();
@@ -4486,7 +4490,7 @@ export default function ProjectWorkspace() {
                             className="flex-1 text-[9px] h-6 rounded border border-violet-500/30 text-violet-400 hover:bg-violet-500/10 disabled:opacity-40 flex items-center justify-center gap-1"
                             onClick={async () => {
                               setDriftLoading(true); setDriftResult(null);
-                              try { const r = await fetch(`${API_BASE}/projects/${projectId}/detect-drift`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixDrift: false }) }); setDriftResult(await r.json()); }
+                              try { const r = await fetch(`${API_BASE}/projects/${id}/detect-drift`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixDrift: false }) }); setDriftResult(await r.json()); }
                               finally { setDriftLoading(false); }
                             }}
                           >{driftLoading ? <><Loader2 className="h-2.5 w-2.5 animate-spin" />Scanning…</> : "Scan for Drift"}</button>
@@ -4496,7 +4500,7 @@ export default function ProjectWorkspace() {
                             onClick={async () => {
                               setDriftLoading(true);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/detect-drift`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixDrift: true }) });
+                                const r = await fetch(`${API_BASE}/projects/${id}/detect-drift`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fixDrift: true }) });
                                 const d = await r.json(); setDriftResult(d);
                                 refetchSegments?.();
                                 toast({ title: "Drift corrected", description: d.message, duration: 2500 });
@@ -4534,7 +4538,7 @@ export default function ProjectWorkspace() {
                           onClick={async () => {
                             setDeesserSaving(true); setDeesserSaved(false);
                             try {
-                              await fetch(`${API_BASE}/projects/${projectId}/deesser`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ strength: deesserStrength }) });
+                              await fetch(`${API_BASE}/projects/${id}/deesser`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ strength: deesserStrength }) });
                               setDeesserSaved(true);
                               toast({ title: `De-esser: ${deesserStrength}`, description: deesserStrength === "off" ? "Disabled" : "Saved — applied on next render", duration: 2000 });
                             } finally { setDeesserSaving(false); }
@@ -4554,7 +4558,7 @@ export default function ProjectWorkspace() {
                           <button disabled={windLoading} className="flex-1 text-[9px] h-6 rounded border border-sky-500/30 text-sky-400 hover:bg-sky-500/10 disabled:opacity-40 flex items-center justify-center gap-1"
                             onClick={async () => {
                               setWindLoading(true); setWindResult(null);
-                              try { const r = await fetch(`${API_BASE}/projects/${projectId}/detect-wind-noise`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applyFix: false }) }); setWindResult(await r.json()); }
+                              try { const r = await fetch(`${API_BASE}/projects/${id}/detect-wind-noise`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applyFix: false }) }); setWindResult(await r.json()); }
                               finally { setWindLoading(false); }
                             }}
                           >{windLoading ? <><Loader2 className="h-2.5 w-2.5 animate-spin" />…</> : "Detect"}</button>
@@ -4562,7 +4566,7 @@ export default function ProjectWorkspace() {
                             onClick={async () => {
                               setWindLoading(true);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/detect-wind-noise`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applyFix: true }) });
+                                const r = await fetch(`${API_BASE}/projects/${id}/detect-wind-noise`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applyFix: true }) });
                                 const d = await r.json(); setWindResult(d);
                                 toast({ title: "Wind filter saved", description: d.message, duration: 2500 });
                               } finally { setWindLoading(false); }
@@ -4607,7 +4611,7 @@ export default function ProjectWorkspace() {
                           onClick={async () => {
                             setDuckingLoading(true); setDuckingResult(null);
                             try {
-                              const r = await fetch(`${API_BASE}/projects/${projectId}/apply-ducking`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ duckLevel: duckingLevel, enabled: duckingEnabled, duckLeadSec: 2, restoreDelaySec: 1 }) });
+                              const r = await fetch(`${API_BASE}/projects/${id}/apply-ducking`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ duckLevel: duckingLevel, enabled: duckingEnabled, duckLeadSec: 2, restoreDelaySec: 1 }) });
                               const d = await r.json(); setDuckingResult(d);
                               toast({ title: duckingEnabled ? "Ducking applied" : "Ducking disabled", description: d.message, duration: 2500 });
                             } finally { setDuckingLoading(false); }
@@ -4639,7 +4643,7 @@ export default function ProjectWorkspace() {
                           onClick={async () => {
                             setVoiceIsoSaving(true); setVoiceIsoSaved(false);
                             try {
-                              await fetch(`${API_BASE}/projects/${projectId}/voice-isolation`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ strength: voiceIsoStrength }) });
+                              await fetch(`${API_BASE}/projects/${id}/voice-isolation`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ strength: voiceIsoStrength }) });
                               setVoiceIsoSaved(true);
                               toast({ title: `Voice isolation: ${voiceIsoStrength}`, description: voiceIsoStrength === "off" ? "Disabled" : "Filter saved for render", duration: 2000 });
                             } finally { setVoiceIsoSaving(false); }
@@ -4673,7 +4677,7 @@ export default function ProjectWorkspace() {
                           onClick={async () => {
                             setMusicMoodLoading(true); setMusicMoodResult(null);
                             try {
-                              const r = await fetch(`${API_BASE}/projects/${projectId}/suggest-music-jamendo`, { method: "POST" });
+                              const r = await fetch(`${API_BASE}/projects/${id}/suggest-music-jamendo`, { method: "POST" });
                               const d = await r.json(); setMusicMoodResult(d);
                             } catch { toast({ title: "Music suggestion failed", variant: "destructive" }); }
                             finally { setMusicMoodLoading(false); }
@@ -4723,7 +4727,7 @@ export default function ProjectWorkspace() {
                           className="w-full text-[9px] h-6 rounded border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-40 flex items-center justify-center gap-1"
                           onClick={async () => {
                             setMusicKeyLoading(true); setMusicKeyResult(null);
-                            try { const r = await fetch(`${API_BASE}/projects/${projectId}/detect-music-key`, { method: "POST" }); setMusicKeyResult(await r.json()); }
+                            try { const r = await fetch(`${API_BASE}/projects/${id}/detect-music-key`, { method: "POST" }); setMusicKeyResult(await r.json()); }
                             catch { toast({ title: "Key detection failed", variant: "destructive" }); }
                             finally { setMusicKeyLoading(false); }
                           }}
@@ -4772,7 +4776,7 @@ export default function ProjectWorkspace() {
                             className="flex-1 text-[9px] h-6 rounded border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 disabled:opacity-40 flex items-center justify-center gap-1"
                             onClick={async () => {
                               setBeatGridLoading(true);
-                              try { const r = await fetch(`${API_BASE}/projects/${projectId}/beat-grid-config`); setBeatGridConfig(await r.json()); setShowBeatGridViz(true); }
+                              try { const r = await fetch(`${API_BASE}/projects/${id}/beat-grid-config`); setBeatGridConfig(await r.json()); setShowBeatGridViz(true); }
                               finally { setBeatGridLoading(false); }
                             }}
                           >{beatGridLoading ? <><Loader2 className="h-2.5 w-2.5 animate-spin" />Loading…</> : "Load Beat Grid"}</button>
@@ -4826,7 +4830,7 @@ export default function ProjectWorkspace() {
                             className="w-full text-[9px] h-6 rounded border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 flex items-center justify-center gap-1"
                             onClick={async () => {
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/sfx-markers`);
+                                const r = await fetch(`${API_BASE}/projects/${id}/sfx-markers`);
                                 const d = await r.json();
                                 setSfxMarkers(d.markers ?? []);
                                 setSfxLibrary(d.library ?? []);
@@ -4860,7 +4864,7 @@ export default function ProjectWorkspace() {
                                 onClick={async () => {
                                   setSfxPlacing(true);
                                   try {
-                                    const r = await fetch(`${API_BASE}/projects/${projectId}/sfx-markers`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ts: currentTime, type: sfxSelectedType, autoPlace: false, volume: 0.7 }) });
+                                    const r = await fetch(`${API_BASE}/projects/${id}/sfx-markers`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ts: currentTime, type: sfxSelectedType, autoPlace: false, volume: 0.7 }) });
                                     const d = await r.json();
                                     setSfxMarkers(d.markers ?? []);
                                     toast({ title: `SFX: ${sfxSelectedType} placed`, description: `At ${currentTime.toFixed(2)}s`, duration: 1500 });
@@ -4873,7 +4877,7 @@ export default function ProjectWorkspace() {
                                 onClick={async () => {
                                   setSfxPlacing(true);
                                   try {
-                                    const r = await fetch(`${API_BASE}/projects/${projectId}/sfx-markers`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ts: 0, type: sfxSelectedType, autoPlace: true, volume: 0.7 }) });
+                                    const r = await fetch(`${API_BASE}/projects/${id}/sfx-markers`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ts: 0, type: sfxSelectedType, autoPlace: true, volume: 0.7 }) });
                                     const d = await r.json();
                                     setSfxMarkers(d.markers ?? []);
                                     toast({ title: `Auto-placed ${sfxSelectedType}`, description: `${d.added} SFX markers at cut points`, duration: 2500 });
@@ -4889,7 +4893,7 @@ export default function ProjectWorkspace() {
                                   <button
                                     className="text-[7px] text-zinc-600 hover:text-red-400"
                                     onClick={async () => {
-                                      await fetch(`${API_BASE}/projects/${projectId}/sfx-markers`, { method: "DELETE" });
+                                      await fetch(`${API_BASE}/projects/${id}/sfx-markers`, { method: "DELETE" });
                                       setSfxMarkers([]);
                                       toast({ title: "All SFX markers cleared", duration: 1500 });
                                     }}
@@ -4909,7 +4913,7 @@ export default function ProjectWorkspace() {
                                     <span key={i} className="text-[7px] bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded px-1 py-0.5 flex items-center gap-0.5">
                                       {m.label} @{m.ts.toFixed(1)}s
                                       <button className="ml-0.5 text-zinc-600 hover:text-red-400" onClick={async () => {
-                                        await fetch(`${API_BASE}/projects/${projectId}/sfx-markers/${m.ts}`, { method: "DELETE" });
+                                        await fetch(`${API_BASE}/projects/${id}/sfx-markers/${m.ts}`, { method: "DELETE" });
                                         setSfxMarkers(p => p.filter((_, j) => j !== i));
                                       }}>✕</button>
                                     </span>
@@ -4948,7 +4952,7 @@ export default function ProjectWorkspace() {
                             onClick={async () => {
                               setStemDetecting(true);
                               try {
-                                const r = await fetch(`${API_BASE}/projects/${projectId}/detect-stems`, { method: "POST" });
+                                const r = await fetch(`${API_BASE}/projects/${id}/detect-stems`, { method: "POST" });
                                 const d = await r.json();
                                 setStemCounts(d.counts);
                                 refetchSegments();
@@ -4987,7 +4991,7 @@ export default function ProjectWorkspace() {
                             setStemExporting(true);
                             setStemFiles(null);
                             try {
-                              const r = await fetch(`${API_BASE}/projects/${projectId}/export-stems`, { method: "POST" });
+                              const r = await fetch(`${API_BASE}/projects/${id}/export-stems`, { method: "POST" });
                               const d = await r.json();
                               if (d.renderRequired) {
                                 toast({ title: "Render first", description: "Please render your project before exporting stems.", variant: "destructive", duration: 4000 });

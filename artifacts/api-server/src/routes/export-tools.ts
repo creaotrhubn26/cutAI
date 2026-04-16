@@ -211,12 +211,12 @@ router.post("/projects/:id/generate-youtube-metadata", async (req, res) => {
 
   const segments = await db.query.segmentsTable.findMany({
     where: and(eq(segmentsTable.projectId, req.params.id), eq(segmentsTable.included, true)),
-    columns: { transcript: true, orderIndex: true },
+    columns: { captionText: true, orderIndex: true },
   });
 
   const transcriptBlob = segments
     .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
-    .map(s => s.transcript ?? "")
+    .map(s => s.captionText ?? "")
     .filter(Boolean)
     .join(" ")
     .slice(0, 3000);

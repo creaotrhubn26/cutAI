@@ -8,9 +8,12 @@ import { anthropic } from "@workspace/integrations-anthropic-ai";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { ai as geminiAi } from "@workspace/integrations-gemini-ai";
 import { batchProcess } from "@workspace/integrations-gemini-ai/batch";
-import { spawn } from "child_process";
+import { spawn, exec } from "child_process";
+import { promisify } from "util";
 import fs from "fs";
 import path from "path";
+
+const execAsync = promisify(exec);
 import {
   CreateJobBody,
   GetJobParams,
@@ -160,7 +163,7 @@ async function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function runJobAsync(jobId: string, projectId: string, videoId: string | null | undefined, type: string, options?: string | null) {
+export async function runJobAsync(jobId: string, projectId: string, videoId: string | null | undefined, type: string, options?: string | null) {
   await db.update(jobsTable).set({ status: "running", startedAt: new Date(), progress: 5 }).where(eq(jobsTable.id, jobId));
   await appendLog(jobId, `Starting ${type.replace(/_/g, " ")} job...`);
 
@@ -1987,12 +1990,12 @@ Return ONLY valid JSON — no markdown, no explanation.`;
           // source video or the same segment type — a common failure in AI
           // edit plans.  Substitute an alternative clip from scoredMoments
           // that hasn't been used in the surrounding 3 positions.
+          const usedRanges: Map<string, Array<{s: number; e: number}>> = new Map();
+          for (const seg of segsToInsert) {
+            if (!usedRanges.has(seg.videoFile)) usedRanges.set(seg.videoFile, []);
+            usedRanges.get(seg.videoFile)!.push({ s: seg.startTime, e: seg.endTime });
+          }
           {
-            const usedRanges: Map<string, Array<{s: number; e: number}>> = new Map();
-            for (const seg of segsToInsert) {
-              if (!usedRanges.has(seg.videoFile)) usedRanges.set(seg.videoFile, []);
-              usedRanges.get(seg.videoFile)!.push({ s: seg.startTime, e: seg.endTime });
-            }
 
             let diversityFixes = 0;
             for (let i = 2; i < segsToInsert.length; i++) {
@@ -3851,8 +3854,7 @@ Return ONLY valid JSON.`;
         category: dna.category ?? styleCategory,
         subcategory: dna.subcategory ?? null,
         description: dna.description ?? null,
-        source: "user_upload",
-        isBuiltIn: false,
+        source: "user",
         avgClipDuration: dna.avgClipDuration ?? 3.5,
         minClipDuration: dna.minClipDuration ?? 0.5,
         maxClipDuration: dna.maxClipDuration ?? 15.0,
@@ -3880,10 +3882,8 @@ Return ONLY valid JSON.`;
         captionFrequency: dna.captionFrequency ?? 0,
         captionStyle: dna.captionStyle ?? "subtitle",
         emotionalArc: dna.emotionalArc ?? null,
-        narrativeStructure: dna.narrativeStructure ?? "linear",
         totalDuration: dna.totalDuration ?? null,
         usageCount: 0,
-        rating: null,
         createdAt: now,
         updatedAt: now,
       });
@@ -4653,7 +4653,7 @@ Return this JSON structure:
         startTime: s.startTime,
         endTime: s.endTime,
         duration: (s.endTime ?? 0) - (s.startTime ?? 0),
-        position: s.order,
+        position: s.orderIndex,
         captionText: s.captionText,
         colorGrade: s.colorGrade,
         speedFactor: s.speedFactor,
@@ -5596,14 +5596,14 @@ Analyze the ${frameParts.length} keyframe screenshot(s) from this video clip. Re
             .set({ sceneAnalysis: JSON.stringify(merged) })
             .where(eq(videosTable.id, video.id));
 
-          // ── Also update clipsAnalysis.shotType for edit plan to use ────
+          // ── Also update clipAnalysis.shotType for edit plan to use ────
           let ca: any = {};
-          try { ca = JSON.parse(video.clipsAnalysis ?? "{}"); } catch {}
+          try { ca = JSON.parse(video.clipAnalysis ?? "{}"); } catch {}
           // Only write shotType if it hasn't been set by a more sophisticated model
           if (!ca.shotType || ca.shotType === "unknown") {
             ca.shotType = shotType;
             await db.update(videosTable)
-              .set({ clipsAnalysis: JSON.stringify(ca) })
+              .set({ clipAnalysis: JSON.stringify(ca) })
               .where(eq(videosTable.id, video.id));
           }
 
@@ -6319,7 +6319,7 @@ Respond with ONLY a JSON array like: [85, 42, 91, 15, ...]`;
           sizeBytes: driveFile.size ? parseInt(driveFile.size as string, 10) : fs.statSync(rawPath).size,
           filePath: rawPath,
           proxyPath,
-          duration: probeRaw > 0 ? probeRaw : null,
+          durationSeconds: probeRaw > 0 ? probeRaw : null,
           driveFileId: driveFile.id!,
           driveProxyFileId: proxyFileId || null,
           driveSource: "google_drive",
@@ -7344,7 +7344,8 @@ Reply ONLY with valid JSON:
 
       const segmentSummaries = segments.map(s => {
         const v = videoMap[s.videoId ?? ""];
-        const neural = s.clipAnalysis ? (() => { try { return JSON.parse(s.clipAnalysis as string); } catch { return {}; } })() : {};
+        // Neural scores live on the source video's clipAnalysis JSON — not on the segment itself
+        const neural = v?.clipAnalysis ? (() => { try { return JSON.parse(v.clipAnalysis as string); } catch { return {}; } })() : {};
         return {
           id: s.id,
           label: s.label ?? s.segmentType,
@@ -7460,9 +7461,9 @@ Only include segments that would actually work as b-roll. Return valid JSON only
           continue;
         }
 
-        // Use neural analysis face bounds if available to center crop on faces
-        let cropX = Math.round((srcW - targetW) / 2); // default: center crop
-        const neural = seg.clipAnalysis ? (() => { try { return JSON.parse(seg.clipAnalysis as string); } catch { return {}; } })() : {};
+        // Face-centered crop using source video's neural analysis (clipAnalysis JSON)
+        let cropX = Math.round((srcW - targetW) / 2);
+        const neural: Record<string, any> = v?.clipAnalysis ? (() => { try { return JSON.parse(v.clipAnalysis as string); } catch { return {}; } })() : {};
         if (neural.has_faces && neural.face_bounds) {
           try {
             const fb = typeof neural.face_bounds === "string" ? JSON.parse(neural.face_bounds) : neural.face_bounds;
@@ -7472,13 +7473,12 @@ Only include segments that would actually work as b-roll. Return valid JSON only
           } catch {}
         }
 
-        // Store the crop hint as metadata in segment's audioEnhancement field (repurposed as metadata bag)
-        // We'll use a dedicated JSON field-safe approach: store in the existing clipAnalysis-like pattern
-        const existing = neural;
-        existing.cropHint = { x: cropX, y: 0, w: targetW, h: targetH, srcW, srcH, format: "9:16" };
-        await db.update(segmentsTable)
+        // Store the crop hint on the source video's clipAnalysis JSON
+        const existing: Record<string, any> = { ...neural };
+        existing.cropHint = { x: cropX, y: 0, w: targetW, h: targetH, srcW, srcH, format: "9:16", segmentId: seg.id };
+        await db.update(videosTable)
           .set({ clipAnalysis: JSON.stringify(existing) })
-          .where(eq(segmentsTable.id, seg.id));
+          .where(eq(videosTable.id, v.id));
 
         reframedCount++;
         await db.update(jobsTable).set({ progress: 5 + Math.round((idx / segments.length) * 85) }).where(eq(jobsTable.id, jobId));
@@ -7984,7 +7984,7 @@ Rules:
         let totalSegments = 0;
 
         for (const vid of targetVideos) {
-          const filePath = path.join(uploadsDir, vid.filename);
+          const filePath = vid.filePath ?? path.join(UPLOAD_DIR, vid.filename);
           if (!fs.existsSync(filePath)) {
             await appendLog(jobId, `  ⚠ Missing file for "${vid.originalName}" — skip`);
             continue;
@@ -8034,7 +8034,6 @@ Rules:
 
           await db.update(videosTable).set({
             sceneAnalysis: JSON.stringify(sa),
-            updatedAt: new Date(),
           }).where(eq(videosTable.id, vid.id));
         }
 
@@ -8058,7 +8057,7 @@ Rules:
         let totalBoundaries = 0;
 
         for (const vid of targetVideos) {
-          const filePath = path.join(uploadsDir, vid.filename);
+          const filePath = vid.filePath ?? path.join(UPLOAD_DIR, vid.filename);
           if (!fs.existsSync(filePath)) {
             await appendLog(jobId, `  ⚠ Missing file for "${vid.originalName}" — skip`);
             continue;
@@ -8094,7 +8093,6 @@ Rules:
 
           await db.update(videosTable).set({
             sceneAnalysis: JSON.stringify(sa),
-            updatedAt: new Date(),
           }).where(eq(videosTable.id, vid.id));
         }
 
@@ -8109,7 +8107,7 @@ Rules:
       // clip description using text-embedding-3-small cosine similarity.
       // Flags mismatches (similarity < 0.2) and writes a score to the segment's aiReason.
       const segments = await db.select().from(segmentsTable).where(
-        and(eq(segmentsTable.projectId, projectId), eq(segmentsTable.isIncluded, true))
+        and(eq(segmentsTable.projectId, projectId), eq(segmentsTable.included, true))
       );
       const videos = await db.select().from(videosTable).where(eq(videosTable.projectId, projectId));
 
@@ -8128,7 +8126,8 @@ Rules:
         }
 
         // Build primary video transcript index (for A-roll speech-aligned timestamps)
-        const primaryVideo = videos.find(v => !v.isBRoll);
+        // No explicit A-roll/B-roll flag on videosTable — pick the first with a transcript
+        const primaryVideo = videos.find(v => !!v.transcript);
         let transcriptWords: Array<{ word: string; start: number; end: number }> = [];
         if (primaryVideo?.transcript) {
           try {
@@ -8144,8 +8143,7 @@ Rules:
           return words.join(" ").trim();
         };
 
-        // Embed helper (batch of up to 50)
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+        // Embed helper (batch of up to 50) — reuses the shared `openai` client imported above
         const embedTexts = async (texts: string[]): Promise<number[][]> => {
           const resp = await openai.embeddings.create({ model: "text-embedding-3-small", input: texts });
           return resp.data.map(d => d.embedding);
@@ -8165,7 +8163,7 @@ Rules:
           if (!spokenText) continue;
 
           // Get visual description from video's clipAnalysis
-          const vid = videoMap.get(seg.videoId ?? "") ?? videoMap.get(seg.videoFile ?? "");
+          const vid = videoMap.get(seg.videoId ?? "");
           if (!vid) continue;
 
           let visualDesc = "";
@@ -8216,7 +8214,7 @@ Rules:
               const reasonWithoutOld = existingReason.replace(/\[AV:[^\]]+\]/, "").trim();
               const avTag = mismatch ? `[AV:mismatch=${score.toFixed(2)}]` : `[AV:ok=${score.toFixed(2)}]`;
               const newReason = reasonWithoutOld ? `${reasonWithoutOld} ${avTag}` : avTag;
-              await db.update(segmentsTable).set({ aiReason: newReason, updatedAt: new Date() }).where(eq(segmentsTable.id, batch[j].seg.id));
+              await db.update(segmentsTable).set({ aiReason: newReason }).where(eq(segmentsTable.id, batch[j].seg.id));
 
               if (mismatch) await appendLog(jobId, `  ⚠ MISMATCH seg ${batch[j].seg.id.slice(0,8)}: score=${score.toFixed(3)} | spoken="${batch[j].spokenText.slice(0,40)}" ≠ visual="${batch[j].visualDesc.slice(0,40)}"`);
             }
@@ -8255,7 +8253,7 @@ Rules:
         const colorProfiles: ColorProfile[] = [];
 
         for (const vid of videos) {
-          const filePath = path.join(uploadsDir, vid.filename);
+          const filePath = vid.filePath ?? path.join(UPLOAD_DIR, vid.filename);
           if (!fs.existsSync(filePath)) continue;
 
           // Extract 3 keyframes at 25%, 50%, 75% of duration with ffmpeg
@@ -8264,7 +8262,7 @@ Rules:
 
           try {
             await execAsync(
-              `ffmpeg -y -i "${filePath}" -vf "select='eq(n\\,0)+gte(mod(t,${Math.max(1, Math.round((vid.duration ?? 30) / 4))}),${Math.max(1, Math.round((vid.duration ?? 30) / 4))}-0.1)',scale=160:90" -frames:v 3 -vsync vfr "${tmpDir}/frame%01d.png" 2>/dev/null`
+              `ffmpeg -y -i "${filePath}" -vf "select='eq(n\\,0)+gte(mod(t,${Math.max(1, Math.round((vid.durationSeconds ?? 30) / 4))}),${Math.max(1, Math.round((vid.durationSeconds ?? 30) / 4))}-0.1)',scale=160:90" -frames:v 3 -vsync vfr "${tmpDir}/frame%01d.png" 2>/dev/null`
             ).catch(() => {});
 
             const frames = fs.readdirSync(tmpDir).filter(f => f.endsWith(".png"));
@@ -8325,7 +8323,7 @@ Rules:
         const audioProfiles: AudioProfile[] = [];
 
         for (const vid of videos) {
-          const filePath = path.join(uploadsDir, vid.filename);
+          const filePath = vid.filePath ?? path.join(UPLOAD_DIR, vid.filename);
           if (!fs.existsSync(filePath)) continue;
 
           const { stderr } = await execAsync(
@@ -8396,6 +8394,387 @@ Rules:
       }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // visual_scan — Claude Vision on sampled keyframes
+    //
+    // The editor's eyes: samples N keyframes via ffmpeg at evenly spaced
+    // intervals, base64-encodes each, and sends them to Claude Vision in a
+    // single prompt. Claude returns a timed visual description, shot type,
+    // subject, emotional tone, and an editorial "story beat" tag per frame.
+    // This is what makes the E2E workflow genuinely understand the video.
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (type === "visual_scan") {
+      const scanOpts = (() => { try { return JSON.parse(options ?? "{}"); } catch { return {}; } })();
+      const framesPerVideo: number = Math.max(4, Math.min(24, scanOpts.frames ?? 12));
+      const maxDim: number         = scanOpts.maxDim ?? 768; // keep payloads small
+
+      const projectVideos = await db.select().from(videosTable).where(eq(videosTable.projectId, projectId));
+      const targetVideos = videoId
+        ? projectVideos.filter(v => v.id === videoId)
+        : projectVideos.filter(v => v.mimeType?.startsWith("video/"));
+
+      if (targetVideos.length === 0) throw new Error("No video files to scan");
+
+      await appendLog(jobId, `Visual scan: ${targetVideos.length} video(s), ${framesPerVideo} keyframes each (Claude Vision).`);
+      await db.update(jobsTable).set({ progress: 8 }).where(eq(jobsTable.id, jobId));
+
+      const perVideoResults: Array<{ videoId: string; keyframes: any[]; narrative: string }> = [];
+
+      for (let vi = 0; vi < targetVideos.length; vi++) {
+        const vid = targetVideos[vi];
+        const srcPath = vid.filePath ?? path.join(UPLOAD_DIR, vid.filename);
+        if (!srcPath || !fs.existsSync(srcPath)) {
+          await appendLog(jobId, `  ⚠ "${vid.originalName}": file not on disk, skipping`);
+          continue;
+        }
+
+        const dur = vid.durationSeconds ?? 0;
+        if (dur <= 0) {
+          await appendLog(jobId, `  ⚠ "${vid.originalName}": unknown duration, skipping`);
+          continue;
+        }
+
+        await appendLog(jobId, `  [${vi + 1}/${targetVideos.length}] Sampling ${framesPerVideo} keyframes from "${vid.originalName}" (${dur.toFixed(1)}s)...`);
+
+        // Sample timestamps evenly, skipping the first and last 2% so we don't
+        // catch fade-ins or abrupt endings.
+        const timestamps: number[] = [];
+        const pad = Math.min(dur * 0.02, 0.5);
+        for (let k = 0; k < framesPerVideo; k++) {
+          const t = pad + ((dur - 2 * pad) * (k + 0.5)) / framesPerVideo;
+          timestamps.push(parseFloat(t.toFixed(3)));
+        }
+
+        // Extract each keyframe as a small jpeg into /tmp
+        const frameDir = path.join(RENDER_DIR, `scan_${jobId}_${vid.id}`);
+        fs.mkdirSync(frameDir, { recursive: true });
+        const frameFiles: Array<{ timestamp: number; path: string }> = [];
+
+        for (let k = 0; k < timestamps.length; k++) {
+          const framePath = path.join(frameDir, `f_${String(k).padStart(3, "0")}.jpg`);
+          try {
+            await runFfmpeg([
+              "-ss", String(timestamps[k]),
+              "-i", srcPath,
+              "-frames:v", "1",
+              "-vf", `scale='min(${maxDim},iw)':-2`,
+              "-q:v", "4",
+              "-y", framePath,
+            ]);
+            if (fs.existsSync(framePath)) frameFiles.push({ timestamp: timestamps[k], path: framePath });
+          } catch (e: any) {
+            await appendLog(jobId, `    ⚠ frame @${timestamps[k]}s failed: ${e?.message?.slice(0, 80)}`);
+          }
+        }
+
+        if (frameFiles.length === 0) {
+          await appendLog(jobId, `    ⚠ no frames extracted, skipping "${vid.originalName}"`);
+          continue;
+        }
+
+        const progressPct = 8 + Math.round(((vi + 0.5) / targetVideos.length) * 80);
+        await db.update(jobsTable).set({ progress: progressPct }).where(eq(jobsTable.id, jobId));
+
+        // Build Claude multimodal prompt — one image block per keyframe, labeled
+        // with its timestamp so Claude can return aligned, timed output.
+        const imageBlocks = frameFiles.map((f, i) => {
+          const b64 = fs.readFileSync(f.path).toString("base64");
+          return [
+            { type: "text" as const, text: `Frame ${i + 1} — timestamp ${f.timestamp.toFixed(2)}s:` },
+            { type: "image" as const, source: { type: "base64" as const, media_type: "image/jpeg" as const, data: b64 } },
+          ];
+        }).flat();
+
+        // Transcript context: if we already transcribed, let Claude correlate
+        // visuals with spoken words for each window.
+        let txContext = "";
+        if (vid.transcript) {
+          try {
+            const tx = JSON.parse(vid.transcript);
+            const segs: Array<{ start: number; end: number; text: string }> = tx.segments ?? [];
+            const sample = segs.slice(0, 40).map(s => `[${s.start.toFixed(1)}s→${s.end.toFixed(1)}s] "${s.text.trim()}"`).join("\n");
+            if (sample) txContext = `\n\nTRANSCRIPT (for context — align visual beats with spoken words):\n${sample}`;
+          } catch {}
+        }
+
+        const scanPrompt = `You are a professional video editor scanning raw footage. Look at ${frameFiles.length} keyframes sampled evenly from a ${dur.toFixed(1)}s clip named "${vid.originalName}".
+
+Your job: describe what you SEE in each frame with an editor's eye — shot type, framing, subject, light, motion energy, emotional tone — and tag each frame with a story beat so an AI editor can plan cuts.${txContext}
+
+Return ONLY valid JSON (no markdown fences, no prose) with this exact shape:
+{
+  "clipSummary": "<one-sentence editorial summary of what this clip is and what it's good for>",
+  "mood": "<joyful|emotional|intimate|energetic|calm|tense|triumphant|melancholy|neutral>",
+  "dominantSubject": "<e.g. bride, couple, crowd, landscape, hands, product, face>",
+  "storyValue": <0.0-1.0 — overall editorial value of this clip for a highlight>,
+  "bestHookWindow": { "start": <sec>, "end": <sec>, "why": "<why this is the strongest attention-grabber>" },
+  "bestClimaxWindow": { "start": <sec>, "end": <sec>, "why": "<why this is the emotional peak>" },
+  "keyframes": [
+    {
+      "timestamp": <exact sec from label above>,
+      "shotType": "<wide|medium|close_up|extreme_close_up|over_the_shoulder|pov|establishing|insert|cutaway|two_shot>",
+      "subject": "<what's in frame>",
+      "action": "<what is happening>",
+      "emotion": "<facial/body emotion if visible>",
+      "lighting": "<natural|golden_hour|low_light|overcast|harsh|studio|mixed>",
+      "motionEnergy": <0.0-1.0>,
+      "storyBeat": "<hook|buildup|conflict|climax|resolution|cta|b_roll|filler>",
+      "editorNote": "<1-sentence note a human editor would write in the margin>"
+    }
+  ]
+}`;
+
+        let parsed: any = null;
+        try {
+          const msg = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 4096,
+            messages: [{
+              role: "user",
+              content: [
+                ...imageBlocks,
+                { type: "text", text: scanPrompt },
+              ],
+            }],
+          });
+          const textBlock = msg.content.find(c => c.type === "text");
+          const raw = textBlock && textBlock.type === "text" ? textBlock.text : "";
+          const match = raw.match(/\{[\s\S]*\}/);
+          if (match) parsed = JSON.parse(match[0]);
+        } catch (e: any) {
+          await appendLog(jobId, `    ⚠ Claude Vision call failed for "${vid.originalName}": ${e?.message?.slice(0, 120)}`);
+        }
+
+        // Always clean up frame files — they're large
+        try { fs.rmSync(frameDir, { recursive: true, force: true }); } catch {}
+
+        if (!parsed) {
+          await appendLog(jobId, `    ⚠ could not parse visual response for "${vid.originalName}"`);
+          continue;
+        }
+
+        // Merge visual scan into video.sceneAnalysis so downstream jobs (edit
+        // plan, b-roll, color) can leverage it without changing their schemas.
+        let existing: any = {};
+        try { existing = JSON.parse(vid.sceneAnalysis ?? "{}"); } catch {}
+        const merged = {
+          ...existing,
+          visualScan: {
+            model: "claude-sonnet-4-6",
+            framesAnalysed: frameFiles.length,
+            scannedAt: new Date().toISOString(),
+            ...parsed,
+          },
+        };
+        await db.update(videosTable).set({ sceneAnalysis: JSON.stringify(merged) }).where(eq(videosTable.id, vid.id));
+
+        perVideoResults.push({
+          videoId: vid.id,
+          keyframes: parsed.keyframes ?? [],
+          narrative: parsed.clipSummary ?? "",
+        });
+
+        const kf = (parsed.keyframes ?? []).length;
+        const mood = parsed.mood ?? "?";
+        const sv = typeof parsed.storyValue === "number" ? Math.round(parsed.storyValue * 100) : "?";
+        await appendLog(jobId, `    ✓ "${vid.originalName}": ${kf} keyframes described | mood=${mood} | storyValue=${sv}/100`);
+      }
+
+      await db.update(jobsTable).set({ progress: 95 }).where(eq(jobsTable.id, jobId));
+      await appendLog(jobId, `Visual scan complete — ${perVideoResults.length} video(s) understood by Claude Vision.`);
+      result = JSON.stringify({
+        videosScanned: perVideoResults.length,
+        totalKeyframes: perVideoResults.reduce((a, b) => a + b.keyframes.length, 0),
+        perVideo: perVideoResults,
+      });
+      await db.insert(activityTable).values({ id: randomUUID(), type: "ai_analysis_done", description: `Visual scan complete for ${perVideoResults.length} clip(s)`, projectId, projectName: null });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // e2e_workflow — the two professional end-to-end editing workflows.
+    //
+    // preset "fast_social_cut" → hook-first vertical short (9:16, 15–60s)
+    // preset "cinematic_story" → emotional horizontal highlight (16:9, 2–5min)
+    //
+    // Both chain the same 5 steps so the user just picks a preset and waits:
+    //   1. transcribe         (Whisper — words the edit cuts on)
+    //   2. visual_scan        (Claude Vision — understands what we're looking at)
+    //   3. generate_edit_plan (Claude — timeline with story arc + pacing)
+    //   4. apply_edit         (validate + lock segments)
+    //   5. render             (final MP4, aspect-correct)
+    //
+    // Each step runs as a real sub-job so logs stream individually AND the
+    // parent e2e job also streams a single consolidated progress bar.
+    // ─────────────────────────────────────────────────────────────────────────
+    else if (type === "e2e_workflow") {
+      const wOpts = (() => { try { return JSON.parse(options ?? "{}"); } catch { return {}; } })();
+      const preset: string = wOpts.preset ?? "fast_social_cut";
+      const storyPrefs = wOpts.storyPrefs ?? null;
+
+      // The preset decides target format, pacing, arc, render aspect and the
+      // editorial tone Claude should adopt. Everything downstream reads from
+      // projectsTable + segmentsTable, so the orchestrator's job is to stamp
+      // the right settings first, then chain the jobs.
+      const PRESETS: Record<string, {
+        label: string;
+        targetFormat: string;
+        genre: string;
+        renderFormat: "vertical" | "landscape";
+        defaultStoryPrefs: Record<string, unknown>;
+        visualFrames: number;
+      }> = {
+        fast_social_cut: {
+          label: "Fast Social Cut",
+          targetFormat: "instagram_reel",
+          genre: "social_media",
+          renderFormat: "vertical",
+          defaultStoryPrefs: { tone: "dynamic", focus: "mixed", pacing: "fast", targetDuration: 45 },
+          visualFrames: 10,
+        },
+        cinematic_story: {
+          label: "Cinematic Story",
+          targetFormat: "wedding_highlight",
+          genre: "short_film",
+          renderFormat: "landscape",
+          defaultStoryPrefs: { tone: "emotional", focus: "mixed", pacing: "medium", targetDuration: 180 },
+          visualFrames: 14,
+        },
+      };
+
+      const config = PRESETS[preset];
+      if (!config) throw new Error(`Unknown workflow preset: ${preset}`);
+
+      const effectivePrefs = { ...config.defaultStoryPrefs, ...(storyPrefs ?? {}) };
+      await appendLog(jobId, `━━━ E2E Workflow: ${config.label} ━━━`);
+      await appendLog(jobId, `Preset: ${preset} | format: ${config.targetFormat} | render: ${config.renderFormat}`);
+      await appendLog(jobId, `Target duration: ${(effectivePrefs as any).targetDuration}s, tone: ${(effectivePrefs as any).tone}, pacing: ${(effectivePrefs as any).pacing}`);
+
+      // Stamp project settings so downstream jobs pick them up
+      await db.update(projectsTable).set({
+        targetFormat: config.targetFormat,
+        genrePreset: config.genre,
+        updatedAt: new Date(),
+      }).where(eq(projectsTable.id, projectId));
+
+      const projectVideos = await db.select().from(videosTable).where(eq(videosTable.projectId, projectId));
+      if (projectVideos.length === 0) throw new Error("No videos uploaded to this project");
+
+      // Helper: create a sub-job and run it to completion inline, forwarding
+      // its log lines to the parent job so the UI sees one stream.
+      const runSubJob = async (subType: string, subVideoId: string | null, subOptions: Record<string, unknown> | null, phaseLabel: string, phaseStartPct: number, phaseEndPct: number) => {
+        const subJobId = randomUUID();
+        const subOptsStr = subOptions ? JSON.stringify(subOptions) : null;
+        await db.insert(jobsTable).values({
+          id: subJobId,
+          projectId,
+          videoId: subVideoId,
+          type: subType,
+          status: "pending",
+          progress: 0,
+          logLines: "[]",
+          options: subOptsStr,
+        });
+        await appendLog(jobId, `▶ ${phaseLabel} — launching sub-job ${subType}`);
+
+        // Run the sub-job and poll its progress, mirroring into our parent log
+        const subPromise = runJobAsync(subJobId, projectId, subVideoId, subType, subOptsStr);
+        let lastLogCount = 0;
+        let lastProgress = 0;
+        while (true) {
+          await delay(600);
+          const [current] = await db.select().from(jobsTable).where(eq(jobsTable.id, subJobId));
+          if (!current) break;
+
+          const lines: string[] = JSON.parse(current.logLines ?? "[]");
+          if (lines.length > lastLogCount) {
+            for (const line of lines.slice(lastLogCount)) {
+              await appendLog(jobId, `  ${line}`);
+            }
+            lastLogCount = lines.length;
+          }
+
+          if (current.progress !== lastProgress) {
+            lastProgress = current.progress;
+            const parentPct = Math.round(phaseStartPct + (phaseEndPct - phaseStartPct) * (current.progress / 100));
+            await db.update(jobsTable).set({ progress: Math.max(lastProgress > 0 ? parentPct : 0, parentPct) }).where(eq(jobsTable.id, jobId));
+          }
+
+          if (current.status === "completed" || current.status === "failed") {
+            await subPromise.catch(() => {});
+            if (current.status === "failed") {
+              throw new Error(`${subType} failed: ${current.errorMessage ?? "unknown error"}`);
+            }
+            return current;
+          }
+        }
+        await subPromise.catch(() => {});
+        return null;
+      };
+
+      // Step 1: Transcribe each video that doesn't already have a transcript
+      const needTranscribe = projectVideos.filter(v => !v.transcript);
+      if (needTranscribe.length > 0) {
+        await appendLog(jobId, `Step 1/5 — Transcription (${needTranscribe.length} video(s))`);
+        for (let i = 0; i < needTranscribe.length; i++) {
+          const v = needTranscribe[i];
+          const a = 2 + Math.round((i / needTranscribe.length) * 18);
+          const b = 2 + Math.round(((i + 1) / needTranscribe.length) * 18);
+          await runSubJob("transcribe", v.id, null, `Transcribe ${i + 1}/${needTranscribe.length} "${v.originalName}"`, a, b);
+        }
+      } else {
+        await appendLog(jobId, "Step 1/5 — Transcription: already done, skipping");
+        await db.update(jobsTable).set({ progress: 20 }).where(eq(jobsTable.id, jobId));
+      }
+
+      // Step 2: Visual scan with Claude Vision (every video, every time — it's cheap and crucial)
+      await appendLog(jobId, `Step 2/5 — Visual Scan with Claude Vision (${projectVideos.length} video(s))`);
+      for (let i = 0; i < projectVideos.length; i++) {
+        const v = projectVideos[i];
+        if (!v.mimeType?.startsWith("video/")) continue;
+        const a = 20 + Math.round((i / projectVideos.length) * 25);
+        const b = 20 + Math.round(((i + 1) / projectVideos.length) * 25);
+        await runSubJob("visual_scan", v.id, { frames: config.visualFrames }, `Visual scan ${i + 1}/${projectVideos.length} "${v.originalName}"`, a, b);
+      }
+
+      // Step 3: Generate edit plan — Claude builds the timeline
+      await appendLog(jobId, "Step 3/5 — Generate Edit Plan (Claude sonnet + story prefs)");
+      await runSubJob("generate_edit_plan", null, { storyPrefs: effectivePrefs }, "Edit plan", 45, 72);
+
+      // Step 4: Apply / validate the edit
+      await appendLog(jobId, "Step 4/5 — Apply & Validate Edit");
+      await runSubJob("apply_edit", null, null, "Apply edit", 72, 80);
+
+      // Step 5: Render the final MP4 in the preset's aspect ratio
+      await appendLog(jobId, `Step 5/5 — Render (${config.renderFormat === "vertical" ? "1080×1920 9:16" : "1920×1080 16:9"})`);
+      const renderOpts = config.renderFormat === "vertical" ? { format: "vertical" } : {};
+      await runSubJob("render", null, renderOpts, "Render", 80, 97);
+
+      // Summary
+      const finalSegs = await db.select().from(segmentsTable)
+        .where(and(eq(segmentsTable.projectId, projectId), eq(segmentsTable.included, true)));
+      const totalSec = finalSegs.reduce((a, s) => a + (s.endTime - s.startTime) / (s.speedFactor ?? 1), 0);
+
+      const summary = {
+        preset,
+        label: config.label,
+        targetFormat: config.targetFormat,
+        renderFormat: config.renderFormat,
+        videos: projectVideos.length,
+        segments: finalSegs.length,
+        durationSec: parseFloat(totalSec.toFixed(2)),
+        completedAt: new Date().toISOString(),
+      };
+      result = JSON.stringify(summary);
+      await appendLog(jobId, `━━━ Workflow done — ${finalSegs.length} segments, ${totalSec.toFixed(1)}s ${config.label} ━━━`);
+      await db.insert(activityTable).values({
+        id: randomUUID(),
+        type: "ai_analysis_done",
+        description: `E2E ${config.label} workflow completed — ${finalSegs.length} segments, ${totalSec.toFixed(1)}s`,
+        projectId,
+        projectName: null,
+      });
+    }
+
     await db.update(jobsTable).set({ status: "completed", progress: 100, result, completedAt: new Date(), aiModel: "claude-sonnet-4-6" }).where(eq(jobsTable.id, jobId));
     await db.update(projectsTable).set({ updatedAt: new Date() }).where(eq(projectsTable.id, projectId));
   } catch (err) {
@@ -8437,7 +8816,7 @@ router.get("/projects/:id/jobs", async (req, res) => {
 });
 
 router.get("/jobs/:id/stream", async (req: Request, res: Response) => {
-  const jobId = req.params.id;
+  const jobId = String(req.params.id);
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");

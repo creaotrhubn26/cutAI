@@ -42,7 +42,7 @@ router.post("/projects/:id/analyze-hook", async (req, res) => {
   // Get first 3 seconds of transcript
   const segments = await db.query.segmentsTable.findMany({
     where: and(eq(segmentsTable.projectId, req.params.id), eq(segmentsTable.included, true)),
-    columns: { transcript: true, orderIndex: true, startTime: true, endTime: true, inPoint: true, outPoint: true },
+    columns: { captionText: true, orderIndex: true, startTime: true, endTime: true, inPoint: true, outPoint: true },
   });
 
   const sorted = segments.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
@@ -52,12 +52,12 @@ router.post("/projects/:id/analyze-hook", async (req, res) => {
   for (const seg of sorted) {
     const dur = (seg.outPoint ?? seg.endTime ?? 0) - (seg.inPoint ?? seg.startTime ?? 0);
     if (elapsed >= 3) break;
-    hookTranscript += (seg.transcript ?? "") + " ";
+    hookTranscript += (seg.captionText ?? "") + " ";
     elapsed += dur;
   }
   hookTranscript = hookTranscript.trim().slice(0, 500);
 
-  const fullTranscript = sorted.map(s => s.transcript ?? "").filter(Boolean).join(" ").slice(0, 2000);
+  const fullTranscript = sorted.map(s => s.captionText ?? "").filter(Boolean).join(" ").slice(0, 2000);
 
   const prompt = `You are a viral content expert who has analyzed 10M+ TikToks and YouTube Shorts.
 Analyze this video's hook (first ~3 seconds) and score it.
@@ -135,14 +135,14 @@ router.post("/projects/:id/optimal-length", async (req, res) => {
 
   const segments = await db.query.segmentsTable.findMany({
     where: and(eq(segmentsTable.projectId, req.params.id), eq(segmentsTable.included, true)),
-    columns: { transcript: true, orderIndex: true, inPoint: true, outPoint: true, startTime: true, endTime: true },
+    columns: { captionText: true, orderIndex: true, inPoint: true, outPoint: true, startTime: true, endTime: true },
   });
 
   const sorted = segments.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   const totalDuration = sorted.reduce((acc, s) => {
     return acc + ((s.outPoint ?? s.endTime ?? 0) - (s.inPoint ?? s.startTime ?? 0));
   }, 0);
-  const transcript = sorted.map(s => s.transcript ?? "").filter(Boolean).join(" ").slice(0, 2000);
+  const transcript = sorted.map(s => s.captionText ?? "").filter(Boolean).join(" ").slice(0, 2000);
 
   const prompt = `You are a YouTube/TikTok optimization expert.
 
@@ -220,11 +220,11 @@ router.post("/projects/:id/caption-hooks", async (req, res) => {
 
   const segments = await db.query.segmentsTable.findMany({
     where: and(eq(segmentsTable.projectId, req.params.id), eq(segmentsTable.included, true)),
-    columns: { transcript: true, orderIndex: true },
+    columns: { captionText: true, orderIndex: true },
   });
   const transcript = segments
     .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
-    .map(s => s.transcript ?? "").filter(Boolean).join(" ").slice(0, 2000);
+    .map(s => s.captionText ?? "").filter(Boolean).join(" ").slice(0, 2000);
 
   const prompt = `You are an expert social media copywriter specializing in viral content.
 

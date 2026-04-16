@@ -1,6 +1,5 @@
-import { Router } from "express";
-import { db } from "@workspace/db/client";
-import { videos } from "@workspace/db/schema";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { db, videosTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -8,7 +7,7 @@ import fs from "fs";
 import path from "path";
 
 const execAsync = promisify(exec);
-const router = Router();
+const router: IRouter = Router();
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/tmp/cutai-uploads";
 const THUMB_DIR  = process.env.THUMB_DIR  ?? "/tmp/cutai-thumbs";
@@ -19,20 +18,26 @@ function thumbPath(videoId: string, t: number): string {
 }
 
 /**
- * GET /api/videos/:videoId/frames?t=5.0
+ * GET /videos/:videoId/frames?t=5.0
  * Returns a single JPEG thumbnail frame at time t (seconds).
  * Cached in THUMB_DIR for subsequent requests.
  */
-router.get("/api/videos/:videoId/frames", async (req, res) => {
+router.get("/videos/:videoId/frames", async (req: Request, res: Response) => {
   try {
-    const { videoId } = req.params;
+    const videoId = String(req.params.videoId);
     const t = parseFloat((req.query.t as string) ?? "0") || 0;
 
-    const [video] = await db.select().from(videos).where(eq(videos.id, Number(videoId))).limit(1);
-    if (!video) return res.status(404).json({ error: "Video not found" });
+    const [video] = await db.select().from(videosTable).where(eq(videosTable.id, videoId)).limit(1);
+    if (!video) {
+      res.status(404).json({ error: "Video not found" });
+      return;
+    }
 
-    const filePath = path.join(UPLOAD_DIR, video.storagePath ?? "");
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
+    const filePath = video.filePath ?? path.join(UPLOAD_DIR, video.filename);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
 
     const out = thumbPath(videoId, t);
     if (!fs.existsSync(out)) {
@@ -49,33 +54,42 @@ router.get("/api/videos/:videoId/frames", async (req, res) => {
       await execAsync(cmd).catch(() => null);
     }
 
-    if (!fs.existsSync(out)) return res.status(500).json({ error: "Thumbnail generation failed" });
+    if (!fs.existsSync(out)) {
+      res.status(500).json({ error: "Thumbnail generation failed" });
+      return;
+    }
 
     res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Cache-Control", "public, max-age=86400");
     res.sendFile(path.resolve(out));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
   }
 });
 
 /**
- * GET /api/videos/:videoId/thumbnail.jpg
- * Returns the representative thumbnail (at 10% into clip).
- * Already handled by existing videos route but this catches alternates.
+ * GET /videos/:videoId/thumbstrip
+ * Returns N evenly-spaced thumbnail frames for a scrubbing strip.
  */
-router.get("/api/videos/:videoId/thumbstrip", async (req, res) => {
+router.get("/videos/:videoId/thumbstrip", async (req: Request, res: Response) => {
   try {
-    const { videoId } = req.params;
-    const count  = Math.min(10, parseInt((req.query.count as string)  ?? "4") || 4);
-    const start  = parseFloat((req.query.start as string)  ?? "0")  || 0;
-    const end    = parseFloat((req.query.end   as string)  ?? "0");
+    const videoId = String(req.params.videoId);
+    const count  = Math.min(10, parseInt((req.query.count as string) ?? "4") || 4);
+    const start  = parseFloat((req.query.start as string) ?? "0") || 0;
+    const end    = parseFloat((req.query.end   as string) ?? "0");
 
-    const [video] = await db.select().from(videos).where(eq(videos.id, Number(videoId))).limit(1);
-    if (!video) return res.status(404).json({ error: "Video not found" });
+    const [video] = await db.select().from(videosTable).where(eq(videosTable.id, videoId)).limit(1);
+    if (!video) {
+      res.status(404).json({ error: "Video not found" });
+      return;
+    }
 
-    const filePath = path.join(UPLOAD_DIR, video.storagePath ?? "");
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
+    const filePath = video.filePath ?? path.join(UPLOAD_DIR, video.filename);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
 
     const duration = end > start ? end - start : (video.durationSeconds ?? 10);
     const times: number[] = [];
@@ -108,8 +122,9 @@ router.get("/api/videos/:videoId/thumbstrip", async (req, res) => {
 
     results.sort((a, b) => a.t - b.t);
     res.json({ videoId, frames: results });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
   }
 });
 
